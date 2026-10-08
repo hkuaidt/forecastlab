@@ -1,5 +1,6 @@
 """Agent 2: source-backed findings, with one shared repair budget."""
 from __future__ import annotations
+import json
 import re
 from ..schemas import (AssessmentCandidate, EvidenceAssessment, EvidenceFinding, RejectedFinding,
                        ConflictDetail, GapDetail, EvidencePassage)
@@ -234,6 +235,30 @@ def _compatibility(assessment, retrieval=None):
     return assessment
 
 
+def normalize_empty_premise_targets(candidate, framing):
+    """No P domain exists only when a real framing has no premises at all.
+
+    Rejected premises still define a domain and must retain strict validation.
+    This removes meaningless bindings, never certifies claims or citations.
+    """
+    if framing is None or framing.premises:
+        return candidate, None
+    normalized = candidate.model_copy(deep=True)
+    bindings = {"findings": [], "gaps": []}
+    for kind in bindings:
+        for index, item in enumerate(getattr(normalized, kind)):
+            if item.target_premise_ids:
+                bindings[kind].append({"candidate_index": index,
+                                       "original_target_premise_ids": list(item.target_premise_ids)})
+                item.target_premise_ids = []
+    if not any(bindings.values()):
+        return normalized, None
+    audit = ("空前提域绑定规范化：草稿没有任何P前提，以下原始绑定已清空为[]；"
+             "仅清空无对象的绑定，claim、E、quote、hash及其余字段仍须独立校验。原始绑定="
+             + json.dumps(bindings, ensure_ascii=False, separators=(",", ":")))
+    return normalized, audit
+
+
 def assess_evidence(question, framing, retrieval, model, data_dir, *, on_progress=None) -> EvidenceAssessment:
     if retrieval.status == "failed":
         a = _compatibility(EvidenceAssessment(summary="取证全部失败，请检查检索配置或创建新运行。",
@@ -291,6 +316,9 @@ def assess_evidence(question, framing, retrieval, model, data_dir, *, on_progres
     for attempt in range(2):
         try:
             candidate = model.complete("evidence12", payload, AssessmentCandidate, PROMPT, attempt_limit=1)
+            candidate, target_audit = normalize_empty_premise_targets(candidate, framing)
+            if target_audit:
+                assessment.summary_audit.append(target_audit)
             findings, rejected = validate_findings(candidate, framing, good_sources, passages)
             conflicts, gaps, more_rejected = _details(candidate, findings, framing, retrieval.retrieval_log, question)
             rejected += more_rejected
