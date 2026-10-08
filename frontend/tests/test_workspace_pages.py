@@ -106,3 +106,4 @@ def test_live_elapsed_unions_parallel_calls_without_offline_gap(page, app_url):
     routes(page,runs=[record])
     page.goto(app_url)
     expect(page.locator(".work-status")).to_contain_text("累计运行 1 分 0 秒")
+    expect(page.locator(".directory-services")).to_contain_text("输出吞吐 0.5 token/s")

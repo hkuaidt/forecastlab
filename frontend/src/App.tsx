@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api } from './api'
-import { reportFailed, recordedSeconds } from './researchStatus'
+import { reportFailed, recordedSeconds, requestSeconds } from './researchStatus'
 import type { Evidence, FindingCitation, Health, Run } from './types'
 import { ExecutionMap, phases, statusNames, type MapNode } from './decision/ExecutionMap'
 import { ResearchComposer } from './decision/ResearchComposer'
@@ -148,10 +148,11 @@ export default function App() {
   const stageCount = phases.filter(([key]) => stageComplete(key)).length
   const elapsed = recordedSeconds(run)
   const calls = [...new Map([...(run?.preparation_records || []), ...(run?.model_calls || [])].map(c => [c.request_id, c])).values()].filter(c => c.usage_known && c.elapsed_seconds > 0)
-  const measuredSeconds = calls.reduce((s, c) => s + c.elapsed_seconds, 0)
+  const hasRequestTiming = calls.length > 0 && calls.every(c => Number.isFinite(Date.parse(c.started_at || '')))
+  const measuredSeconds = hasRequestTiming ? requestSeconds(calls) : calls.reduce((s, c) => s + c.elapsed_seconds, 0)
   const rate = measuredSeconds ? calls.reduce((s, c) => s + c.completion_tokens, 0) / measuredSeconds
     : elapsed > 0 && run?.usage.completion_tokens ? run.usage.completion_tokens / elapsed : null
-  const rateLabel = measuredSeconds ? '平均' : '运行均速'
+  const rateLabel = hasRequestTiming ? '输出吞吐' : measuredSeconds ? '平均' : '运行均速'
   const tokenTotal = (run?.usage.prompt_tokens || 0) + (run?.usage.completion_tokens || 0)
   const pageTab: DetailTab = route.page === 'evidence' ? 'event' : route.page === 'actors' ? 'actors' : 'report'
   const isCanvas = route.page === 'canvas'
@@ -176,7 +177,7 @@ export default function App() {
       <div className="directory-services">
         <div><span className={health?.model_configured ? 'connection-dot' : 'connection-dot off'} />{health?.model_configured ? health.model : '模型未连接'}</div>
         <div><span className={health?.search_configured ? 'connection-dot' : 'connection-dot off'} />{health?.search_configured ? '联网搜索可用' : '搜索待配置'}</div>
-        <small title={measuredSeconds ? "已完成请求的平均输出速度，包含输入处理与生成时间；不是纯生成速度" : "输出 token 除以已记录阶段的总耗时，包含检索、输入处理和生成"}>{rate === null ? '等待首个调用' : `${rateLabel} ${rate.toFixed(1)} token/s（含输入）`}</small>
+        <small title={hasRequestTiming ? "已结束请求的输出总量除以活动时间，并发时不重复累计；包含输入处理，不是实时解码速度" : measuredSeconds ? "已完成请求的平均输出速度，包含输入处理与生成时间；不是纯生成速度" : "输出 token 除以已记录阶段的总耗时，包含检索、输入处理和生成"}>{rate === null ? '等待首个调用' : `${rateLabel} ${rate.toFixed(1)} token/s（含输入）`}</small>
       </div>
     </aside>
     <div className="desk-main">
