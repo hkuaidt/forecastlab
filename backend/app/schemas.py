@@ -550,6 +550,13 @@ class ForecastAttempt(BaseModel):
     recorded_at: datetime = Field(default_factory=utcnow)
 
 
+class ScenarioForecast(Forecast):
+    """A sourced scenario report returns a subjective, uncalibrated distribution."""
+    status: Literal["completed"] = "completed"
+    probability_basis: Literal["full"] = "full"
+    probabilities: dict[str, float]
+
+
 class EvidenceOnlyForecast(Forecast):
     """An approved evidence-only binary forecast cannot silently omit probability."""
     status: Literal["completed"] = "completed"

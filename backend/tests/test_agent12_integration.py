@@ -29,7 +29,7 @@ class WorkflowModel:
         elif role == "review":
             body = {"status": "passed"}
         elif role == "forecast":
-            body = {"status": "scenario_only", "conclusion": "这是固定测试结果", "probabilities": None,
+            body = {"status": "completed", "conclusion": "这是固定测试结果", "probabilities": {"推进": 0.5, "延后": 0.3, "受限": 0.2},
                     "supporting": [{"text": "资料声称测试已完成", "evidence_ids": ["E001"]}]}
         else:
             raise AssertionError(f"Unexpected role {role}")
@@ -60,7 +60,7 @@ def test_confirmed_request_controls_graph_input(tmp_path, clear_framing, monkeyp
             "evidence": [{"file_id": "test", "title": "测试资料", "excerpt": "测试已完成，但尚不确定未来。"}]})
         assert response.status_code == 202, response.text
         run = client.get(f"/api/runs/{response.json()['run_id']}").json()
-        assert run["question_origin"] == "confirmed" and run["status"] == "scenario_only", run["errors"]
+        assert run["question_origin"] == "confirmed" and run["status"] == "completed", run["errors"]
         assert "question" not in [role for role, _ in model.calls]
         payloads = dict(model.calls)
         assert payloads["evidence12"]["question_framing"]["draft_id"] == c.draft_id
@@ -184,7 +184,7 @@ def test_confirmed_simulation_does_not_require_optional_assessment_payload(tmp_p
     output = build_graph(record, material(c.question, tmp_path).evidence, model, tmp_path).invoke({"question": c.question.model_dump(mode="json")})
     assert model.environment_calls == 2
     assert len(output["actions"]) == 6
-    assert output["forecast"]["probabilities"] is None
+    assert sum(output["forecast"]["probabilities"].values()) == 1
 
 
 def test_review_can_audit_an_existing_finding_but_not_invent_one(tmp_path, clear_framing):

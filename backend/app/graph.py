@@ -1,7 +1,7 @@
 """Explicit SAO workflow. Each node owns a single stage output."""
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from math import ceil
+from math import ceil, isfinite
 import re
 import time
 from typing import TypedDict
@@ -9,7 +9,7 @@ from uuid import uuid4
 from langgraph.graph import StateGraph, START, END
 from .schemas import (QuestionSpec, QuestionAnalysis, Evidence, EvidenceAssessment, EvidenceOnlyAudit,
                       WorldState, ActorAction, SimulationStep, Review, ReviewIssue, Forecast,
-                      EvidenceOnlyForecast, ForecastAttempt, RunRecord, utcnow)
+                      EvidenceOnlyForecast, ScenarioForecast, ForecastAttempt, RunRecord, utcnow)
 from .sources import online_search, retrieve_evidence
 from .schemas import RetrievalResult, RetrievalLog, RetrievalTask, Assumption
 from .agents.evidence import (assess_evidence, active_framing, make_evidence_context, EvidenceStageError,
@@ -279,7 +279,7 @@ def scenario_forecast_context(payload: dict) -> dict:
     safe["forecast_context_provenance"] = {
         "source_material": "evidence及evidence_assessment中的原文和引用保持不变；原文匹配不等于独立事实认证，须保留来源及日期限制。",
         "model_derived": "world/actions/simulation/review是模型构造的假设、模拟与审查判断，不是新增观测；其中未校准比例已遮蔽，不得补造。",
-        "report_rule": "含H/S引用的主张必须明确为条件、假设或模拟；只作定性条件推演，不把E/H/S混合引用当事实认证。",
+        "report_rule": "区分来源与模型推演，给出未校准的场景主观概率；不要把E/H/S混合引用当实测认证。",
     }
     return safe
 
@@ -370,7 +370,7 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
     evidence_ids = {e.id for e in evidence}
     assumption_ids = {a.id for a in world.assumptions}
     simulation_ids = {s.id for s in simulation}
-    evidence_only = review.probability_basis == "evidence_only"
+    evidence_only = question.mode == "binary" and review.probability_basis == "evidence_only"
     for claim in forecast.supporting + forecast.opposing:
         check_ids(claim.evidence_ids, evidence_ids, "报告证据")
         check_ids(claim.assumption_ids, assumption_ids, "报告假设")
@@ -382,36 +382,48 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
     check_ids(forecast.key_assumptions, assumption_ids, "关键假设")
     if evidence_only and forecast.key_assumptions:
         raise ValueError("仅依据证据的概率不能依赖建模假设")
-    if question.mode == "scenario" or (review.status == "blocked" and not evidence_only) or not evidence:
+    if not evidence:
         forecast.probabilities = None
         if forecast.status != "partial":
             forecast.status = "scenario_only" if question.mode == "scenario" else "insufficient_evidence"
-    semantic_errors = []
+    semantic_warnings = []
     try:
         validate_forecast_claim_kinds(forecast)
     except ValueError as exc:
-        semantic_errors.append(str(exc))
+        semantic_warnings.append(str(exc))
     if question.mode == "scenario":
         try:
             validate_scenario_quantification(forecast, evidence)
         except ValueError as exc:
-            semantic_errors.append(str(exc))
+            semantic_warnings.append(str(exc))
         if any(re.match(r"^E\d+\s*(?:显示|指出|提及)", item) for item in forecast.new_information):
-            semantic_errors.append("后续信息应描述待收集或核验的资料，不能复述来源结论")
-    if semantic_errors:
-        raise ValueError("；".join(semantic_errors))
-    if require_probability and forecast.probabilities is None:
-        raise ValueError("事前证据复审允许主观概率，报告仍未给出概率")
+            semantic_warnings.append("后续信息可能复述来源判断，请结合原文核验。")
+    if review.status == "blocked":
+        semantic_warnings.append("审查仍有未解决问题；结论和概率是有保留的模型判断。")
+    for warning in semantic_warnings:
+        note = "质量提示（不阻断报告）：" + warning
+        if note not in forecast.limitations:
+            forecast.limitations.append(note)
+    if require_probability and evidence and forecast.probabilities is None:
+        raise ValueError("已有证据，请给出未经校准的主观概率；probabilities不能为null")
     if forecast.probabilities is not None:
-        if set(forecast.probabilities) != set(question.outcomes):
+        if question.mode == "scenario":
+            if len(forecast.probabilities) < 2 or any(not key.strip() for key in forecast.probabilities):
+                raise ValueError("场景概率需至少两个有名称的情景")
+        elif set(forecast.probabilities) != set(question.outcomes):
             raise ValueError("概率结果选项与问题不一致")
-        if any(p < 0 or p > 1 for p in forecast.probabilities.values()) or abs(sum(forecast.probabilities.values()) - 1) > .001:
+        if (any(not isfinite(p) or p < 0 or p > 1 for p in forecast.probabilities.values())
+                or abs(sum(forecast.probabilities.values()) - 1) > .001):
             raise ValueError("概率须在 0–1 且合计为 1")
-    elif forecast.status == "completed":
-        forecast.status = "insufficient_evidence"
-    if evidence_only and forecast.probabilities is not None:
         forecast.status = "completed"
+        note = "概率为模型基于现有证据与假设给出的主观分配，未经校准，不是来源实测频率。"
+        if note not in forecast.limitations:
+            forecast.limitations.append(note)
+    elif forecast.status != "partial":
+        forecast.status = "scenario_only" if question.mode == "scenario" else "insufficient_evidence"
+    if evidence_only and forecast.probabilities is not None:
         forecast.probability_basis = "evidence_only"
+
 
 
 def repair_forecast(forecast: Forecast, question: QuestionSpec, evidence: list[Evidence], world: WorldState,
@@ -858,7 +870,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         evidence = [Evidence.model_validate(x) for x in state["evidence"]]
         world = WorldState.model_validate(state["world"])
         review = Review.model_validate(state["review"])
-        evidence_only = review.probability_basis == "evidence_only"
+        evidence_only = question.mode == "binary" and review.probability_basis == "evidence_only"
         price_context = market_price_context(question, evidence)
         if evidence_only and config.SHADOW_FULL:
             full_world = world
@@ -908,21 +920,21 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             probability_instructions = (f"概率键必须严格为 {question.outcomes}，数值在 0 到 1 且合计为 1；"
                                         "概率是未经校准的主观判断；证据不足或开放问题必须用 null。")
             forecast_schema = Forecast
-        instructions += (" 含H/S引用的supporting/opposing主张必须明确为条件、假设或模拟，"
-                         "使用‘若…则可能…’或‘模型假设：…’等明确表述；不能用混合E/H/S引用认证无条件事实。")
+        instructions += (" 区分来源事实、假设与模拟；对未核实关系和数值说明限制，不把模型推演称为实测。")
         if question.mode == "scenario":
             forecast_payload = scenario_forecast_context(forecast_payload)
-            instructions += ("Open scenario analysis: use qualitative conditional possibilities, not invented "
-                             "impact percentages or arbitrary numerical indices. Model-derived assumptions and simulation "
-                             "outcomes are not measurements; attribute source observations explicitly. "
-                             "new_information lists what needs verifying. "
-                             "所有字段（包括结论、支持/反对依据、情景、局限和后续信息）都遵守同一证据标准。"
-                             "simulation/H中的百分比不等于实测或有依据的量化预测；缺少直接量化依据时只写定性条件，"
-                             "删除来自模拟的任意百分比或阈值，不得转移到supporting或opposing。若保留来源统计比例，须明确归属并直接引用包含比例的完整原句，不能用译写或碰巧相同的数字替代核验。"
-                             "‘验证标准不透明/滞后’‘需人工验证’若没有直接原文依据，只能明确写成待检验的模型假设，"
-                             "不能归因给E来源。工具验证与专家判断是不同环节，不要混同。"
-                             "三种情景须写具体触发条件、机制和可观察反证，不要只给标题；"
-                             "发布日期未知及历史回看限制必须保留。")
+            forecast_schema = ScenarioForecast if evidence else Forecast
+            probability_instructions = (
+                "这是开放场景研究：只要已有证据，就必须给出非null的probabilities。"
+                "优先使用三个清楚命名、互斥且覆盖主要可能性的情景作为键，概率数值在0到1之间、合计为1；"
+                "若问题已有合适的outcomes也可沿用。概率是未经校准的主观情景分配，不是来源实测频率。"
+                "证据有限或review=blocked只需降低把握并写入limitations，不要因此拒绝给概率。")
+            if not evidence:
+                probability_instructions = "尚未取得来源，probabilities必须为null；说明需要补充什么资料，不编造概率。"
+            instructions += (
+                "优先完成一份可读报告，解释每个场景的触发条件与证据依据。"
+                "模型假设、模拟结果及被遮蔽的比例不是新增观测，不要声称其经过实测。"
+                "原文来源、发布日期未知及历史回看限制必须保留；审查意见作为限制披露。")
         if price_context:
             forecast_payload["market_price_context"] = price_context
             price_note = ("对于市场价格问题，先比较预测期限与历史价格覆盖：一两日涨势不能直接外推到月末，"
@@ -934,9 +946,23 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             if evidence_only and config.SHADOW_FULL:
                 full_payload["market_price_context"] = price_context
                 full_instructions += price_note
+        usable_candidates = []
+        last_failure = "模型未返回可用报告"
         for attempt in range(2):
-            forecast = ask("forecast", forecast_payload, forecast_schema,
-                           instructions + "语言简洁。" + probability_instructions)
+            try:
+                forecast = ask("forecast", forecast_payload, forecast_schema,
+                               instructions + "语言简洁。" + probability_instructions)
+            except (ValueError, RuntimeError, BudgetExceeded) as exc:
+                if question.mode != "scenario":
+                    raise
+                last_failure = f"{type(exc).__name__}: {exc}"
+                record.errors.append(f"报告生成尝试{attempt + 1}失败：{last_failure}")
+                forecast_payload["validation_feedback"] = f"请重新输出符合JSON结构的完整报告：{last_failure}"
+                if store is not None:
+                    store.save(record, snapshot=False)
+                if isinstance(exc, BudgetExceeded):
+                    break
+                continue
             candidate = forecast.model_copy(deep=True)
             forecast.probability_basis = "evidence_only" if evidence_only else "full"
             canonicalize_forecast_ids(forecast, evidence, world, simulation)
@@ -953,7 +979,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                                         if not mistakes_future_outcome_for_missing_evidence(item, question)]
             try:
                 validate_forecast(forecast, question, evidence, world, simulation, review,
-                                  require_probability=evidence_only)
+                                  require_probability=evidence_only or (question.mode == "scenario" and bool(evidence)))
                 record.forecast_attempts.append(ForecastAttempt(candidate=candidate))
                 if evidence_only:
                     forecast.limitations.append("概率仅依据截至日已有证据，未采用模拟行动或建模假设。")
@@ -1004,12 +1030,31 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                     forecast.limitations.append("历史演练资料是事后按发布日期整理，并非截至日冻结快照；可能存在回看偏差。")
                 return {"forecast": forecast.model_dump(mode="json")}
             except ValueError as exc:
+                last_failure = str(exc)
+                usable_candidates.append(forecast.model_copy(deep=True))
                 record.forecast_attempts.append(ForecastAttempt(candidate=candidate, validation_errors=[str(exc)]))
                 # Persist the rejected public output before another request can fail.
                 if store is not None:
                     store.save(record, snapshot=False)
                 forecast_payload["validation_feedback"] = f"上次报告未通过校验：{exc}。请修正后重新输出完整 JSON。"
-        raise ValueError("报告内容或引用校验未通过：" + record.forecast_attempts[-1].validation_errors[-1])
+        if question.mode != "scenario":
+            raise ValueError("报告内容或引用校验未通过：" + last_failure)
+        # Prefer a structurally valid candidate with real references, even when the
+        # model omitted probabilities. Never synthesize or normalize model numbers.
+        for fallback in reversed(usable_candidates):
+            try:
+                validate_forecast(fallback, question, evidence, world, simulation, review)
+            except ValueError:
+                continue
+            fallback.status = "partial" if fallback.probabilities is None else "completed"
+            fallback.limitations.append("自动报告未完整满足输出要求，保留了已通过结构和引用校验的候选；未补造概率。" + last_failure)
+            return {"forecast": fallback.model_dump(mode="json")}
+        fallback = Forecast(status="partial", conclusion=("已保留可追溯的来源；自动报告未完整生成，未编造概率。" if evidence
+                                                          else "未取得可用来源；自动报告未完整生成，未编造概率。"),
+            supporting=[{"text": f"已取得来源：{item.title}", "evidence_ids": [item.id]} for item in evidence],
+            limitations=["自动报告两次纠正后仍未通过基础结构、引用或概率校验：" + last_failure])
+        validate_forecast(fallback, question, evidence, world, simulation, review)
+        return {"forecast": fallback.model_dump(mode="json")}
 
     graph = StateGraph(FlowState)
     for name, fn in (("define_question", question_node), ("retrieve", evidence_node), ("model_world", world_node), ("simulate", simulation_node), ("audit", review_node), ("synthesize", forecast_node)):

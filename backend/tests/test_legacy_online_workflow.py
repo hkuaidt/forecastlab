@@ -46,8 +46,8 @@ class DirectOnlineModel:
         elif role == "review":
             body = {"status": "passed"}
         elif role == "forecast":
-            body = {"status": "scenario_only", "conclusion": "发布仍取决于后续验证。",
-                    "probabilities": None, "supporting": [{
+            body = {"status": "completed", "conclusion": "发布仍取决于后续验证。",
+                    "probabilities": {"推进": 0.5, "延后": 0.3, "受限": 0.2}, "supporting": [{
                         "text": "项目的核心测试已经通过。", "evidence_ids": ["E001"]}]}
         else:
             raise AssertionError(f"Unexpected legacy online role: {role}")
@@ -87,7 +87,7 @@ def test_direct_online_input_validates_full_source_and_finishes_report(tmp_path,
     with TestClient(app) as client:
         run_id = create_direct_run(client)
         record = app.state.store.get(run_id)
-        assert record.status == "scenario_only", record.errors
+        assert record.status == "completed", record.errors
         assert record.question_origin == "legacy_direct"
         assert record.question_framing is None and record.confirmation_id is None
         assert record.retrieval_started and record.retrieval_result.status == "completed"
@@ -124,7 +124,7 @@ def test_world_failure_resumes_saved_online_evidence_without_search_or_reassessm
         response = client.post(f"/api/runs/{run_id}/resume")
         assert response.status_code == 202, response.text
         resumed = app.state.store.get(run_id)
-        assert resumed.status == "scenario_only", resumed.errors
+        assert resumed.status == "completed", resumed.errors
         assert resumed.resume_count == 1
         assert resumed.stage_outputs["evidence"] == before_evidence
         assert online_dependencies["search_calls"] == ["项目 发布进展"]

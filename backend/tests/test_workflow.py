@@ -391,18 +391,16 @@ def test_actor_repairs_hypothesis_misfiled_as_external_evidence():
     assert all(not any(e.startswith("H") for e in action["evidence_ids"]) for action in state["actions"])
 
 
-def test_open_scenarios_cannot_present_arbitrary_rates_as_estimates():
+def test_open_scenarios_disclose_arbitrary_rates_without_blocking():
     from app.graph import validate_forecast, repair_forecast
     from app.schemas import QuestionSpec, Forecast, Review, WorldState
     from app.demo import DEMO_QUESTION
     question = DEMO_QUESTION.model_copy(update={"mode": "scenario", "outcomes": []})
     forecast = Forecast(status="scenario_only", conclusion="conditional", scenarios=["AI影响达55%"],
                         new_information=["E008指出形式化证明需24个月验证周期"])
-    with pytest.raises(ValueError, match="定量比例"):
-        validate_forecast(forecast, question, [], WorldState(summary="fixture"), [], Review(status="qualified"))
-    forecast.scenarios = ["工具逐步采用"]
-    with pytest.raises(ValueError, match="后续信息"):
-        validate_forecast(forecast, question, [], WorldState(summary="fixture"), [], Review(status="qualified"))
+    validate_forecast(forecast, question, [], WorldState(summary="fixture"), [], Review(status="qualified"))
+    assert any("定量比例" in note for note in forecast.limitations)
+    assert any("后续信息" in note for note in forecast.limitations)
     repaired = repair_forecast(forecast, question, [], WorldState(summary="fixture"), [], Review(status="qualified"), "unsupported information")
     assert repaired.new_information == [] and repaired.probabilities is None
 

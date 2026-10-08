@@ -16,7 +16,7 @@ def test_unattributed_scenario_rates_are_rejected_in_every_public_field(field, r
         validate_scenario_quantification(forecast, [])
 
 
-def test_real_supporting_field_bypass_is_rejected_even_with_valid_trace_ids():
+def test_model_rate_is_disclosed_as_quality_warning_with_valid_trace_ids():
     from app.demo import demo_evidence, demo_output
     from app.schemas import SimulationStep
     evidence = demo_evidence()
@@ -25,8 +25,8 @@ def test_real_supporting_field_bypass_is_rejected_even_with_valid_trace_ids():
     forecast = Forecast(status="scenario_only", conclusion="多路径分化", supporting=[Claim(
         text="基准情景：形式化率提升至30%-50%", evidence_ids=["E001"], assumption_ids=["H001"], simulation_ids=["S1"])], scenarios=["基准情景"])
     question = QuestionSpec(question="数学科研未来将如何变化？", mode="scenario")
-    with pytest.raises(ValueError, match=r"supporting\[0\]"):
-        validate_forecast(forecast, question, evidence, world, simulation, Review(status="blocked"))
+    validate_forecast(forecast, question, evidence, world, simulation, Review(status="blocked"))
+    assert any("supporting[0]" in note and "质量提示" in note for note in forecast.limitations)
 
 
 def test_percentages_marked_explicitly_as_unmeasured_hypotheses_are_allowed():

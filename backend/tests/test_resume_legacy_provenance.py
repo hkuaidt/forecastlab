@@ -33,8 +33,8 @@ class ResumeModel:
         elif role == "review":
             body = {"status": "passed"}
         elif role == "forecast":
-            body = {"status": "scenario_only", "conclusion": "可继续核查。",
-                    "probabilities": None, "supporting": [{"text": "测试已经完成。",
+            body = {"status": "completed", "conclusion": "可继续核查。",
+                    "probabilities": {"推进": 0.5, "延后": 0.3, "受限": 0.2}, "supporting": [{"text": "测试已经完成。",
                     "evidence_ids": ["E001"]}]}
         else:
             raise AssertionError(role)
@@ -69,7 +69,7 @@ def test_old_registered_quotes_resume_without_repeating_model_or_search(tmp_path
     model = ResumeModel()
     monkeypatch.setattr(G, "ModelClient", lambda **kwargs: model)
     G.execute(record, record.evidence, RunStore(tmp_path), resume=True)
-    assert record.status == "scenario_only", record.errors
+    assert record.status == "completed", record.errors
     assert model.roles == ["world", "review", "forecast"]
     saved = RunStore(tmp_path).get(record.run_id)
     assert saved.evidence_assessment.findings_validated
@@ -186,7 +186,7 @@ def test_missing_legacy_flag_is_validated_before_resuming_saved_later_stages(tmp
     model = ResumeModel()
     monkeypatch.setattr(G, "ModelClient", lambda **kwargs: model)
     G.execute(record, record.evidence, RunStore(tmp_path), resume=True)
-    assert record.status == "scenario_only", record.errors
+    assert record.status == "completed", record.errors
     assert model.roles == ["forecast"]
     assert record.stage_outputs["evidence"]["evidence_assessment"]["findings_validated"] is True
     for stage, output in previous_later.items():

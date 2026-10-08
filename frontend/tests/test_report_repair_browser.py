@@ -235,3 +235,29 @@ def test_report_displays_named_scenario_and_legacy_binary_probabilities(page, ap
         expect(row.locator("meter")).to_have_attribute("value", str(value))
     expect(page.locator(".report-repair")).to_have_count(0)
     expect(page.get_by_role("link", name="导出推演报告 ↗", exact=True)).to_be_visible()
+
+
+def test_partial_source_report_keeps_body_exports_and_probability_retry(page, app_url):
+    run = rejected_run()
+    run.update({"status": "partial", "failed_stage": None, "forecast_attempts": []})
+    run["forecast"].update({"status": "partial", "conclusion": "已整理可用来源，情景概率尚未生成。",
+                            "probabilities": None, "limitations": ["此报告仅为来源索引，不提供概率估计。"],
+                            "supporting": [{"text": "已收集来源的原始摘要", "evidence_ids": ["E001"],
+                                            "assumption_ids": [], "simulation_ids": []}],
+                            "scenarios": [], "new_information": []})
+    open_report(page, app_url, run)
+    expect(page.locator(".report-conclusion")).to_have_text("已整理可用来源，情景概率尚未生成。")
+    expect(page.get_by_text("已收集来源的原始摘要", exact=True)).to_be_visible()
+    expect(page.get_by_role("link", name="导出推演报告 ↗", exact=True)).to_be_visible()
+    expect(page.get_by_role("link", name="导出推演记录", exact=True)).to_be_visible()
+    expect(page.locator(".report-repair")).to_have_count(0)
+    retry = page.get_by_role("button", name="重新生成概率 ↗", exact=True)
+    expect(retry).to_be_enabled()
+    page.route("**/api/runs/run_fixture/repair-report", lambda route: route.fulfill(
+        status=422, content_type="application/json", body=json.dumps({"detail": "来源暂不可用，请稍后重试。"}, ensure_ascii=False)))
+    with page.expect_response("**/api/runs/run_fixture/repair-report") as response:
+        retry.click()
+    assert response.value.request.method == "POST"
+    expect(page.locator(".app-alert")).to_contain_text("来源暂不可用，请稍后重试。")
+    expect(page.locator(".report-conclusion")).to_have_text(run["forecast"]["conclusion"])
+    expect(retry).to_be_enabled()

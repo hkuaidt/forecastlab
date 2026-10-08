@@ -21,7 +21,9 @@ def is_legacy_report_failure(record: RunRecord) -> bool:
 def report_repair_info(record: RunRecord) -> dict:
     failure = (is_legacy_report_failure(record) or
                (record.status in {"failed", "partial", "interrupted"}
-                and record.failed_stage == "forecast" and record.forecast is None))
+                and record.failed_stage == "forecast" and record.forecast is None)
+               or (record.status == "partial" and record.forecast is not None
+                   and record.forecast.probabilities is None and bool(record.evidence)))
     available = bool(failure and not record.demo and record.status not in {"queued", "running"}
                      and all(stage in record.stage_outputs for stage in UPSTREAM_STAGES))
     return {"available": available,

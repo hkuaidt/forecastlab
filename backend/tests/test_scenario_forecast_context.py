@@ -79,18 +79,19 @@ def test_explicit_conditional_claims_keep_traceable_hypotheses(text):
     graph.validate_forecast_claim_kinds(report)
 
 
-def test_feedback_lists_all_hypothesis_and_rate_fields_in_one_attempt():
+def test_quality_limitations_list_all_hypothesis_and_rate_fields_without_blocking():
     state = scenario_state()
     report = Forecast(status="scenario_only", conclusion="条件推演", supporting=[
         Claim(text="形式化率30%-50%", assumption_ids=["H001"])], opposing=[
         Claim(text="实际验证标准滞后", simulation_ids=["S1"])], scenarios=["自动化率60%"], limitations=["覆盖率40%"])
-    with pytest.raises(ValueError) as failure:
-        graph.validate_forecast(report, QuestionSpec.model_validate(state["question"]), demo_evidence(),
-                                WorldState.model_validate(state["world"]),
-                                [SimulationStep.model_validate(state["simulation"][0])], Review(status="qualified"))
+    graph.validate_forecast(report, QuestionSpec.model_validate(state["question"]), demo_evidence(),
+                            WorldState.model_validate(state["world"]),
+                            [SimulationStep.model_validate(state["simulation"][0])], Review(status="qualified"))
+    warning = " ".join(report.limitations)
     for field in ("supporting[0]", "opposing[0]", "scenarios[0]", "limitations[0]"):
-        assert field in str(failure.value)
-    assert "条件、假设或模拟" in str(failure.value) and "定量比例" in str(failure.value)
+        assert field in warning
+    assert "质量提示" in warning
+
 
 
 @pytest.mark.parametrize("mode", ["scenario", "binary"])
@@ -104,7 +105,7 @@ def test_actual_forecast_model_input_is_private_and_scoped_to_scenario(mode, tmp
             assert role == "forecast"
             self.payload = deepcopy(payload)
             self.instructions = instructions
-            return schema.model_validate({"status": "scenario_only", "conclusion": "若复核完成，则可能推进。",
+            return schema.model_validate({"status": "completed", "conclusion": "若复核完成，则可能推进。", "probabilities": {"是": .6, "否": .4},
                 "supporting": [{"text": "若验证条件具备，则可能推进。", "evidence_ids": ["E001"], "assumption_ids": ["H001"]}]})
     model = CaptureModel()
     record = RunRecord(run_id="report_input_fixture", question=QuestionSpec.model_validate(state["question"]),
@@ -122,4 +123,4 @@ def test_actual_forecast_model_input_is_private_and_scoped_to_scenario(mode, tmp
         assert "forecast_context_provenance" not in model.payload
     assert model.payload["evidence"][0]["excerpt"] == before["evidence"][0]["excerpt"]
     assert "60%" in model.payload["evidence"][0]["excerpt"]
-    assert "含H/S引用" in model.instructions
+    assert "区分来源事实" in model.instructions

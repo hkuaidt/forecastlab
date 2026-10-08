@@ -57,20 +57,21 @@ def saved_report(tmp_path, *, legacy=False):
     return record
 
 
-BAD = {"status": "scenario_only", "conclusion": "无依据比例", "scenarios": ["普及率达35%"]}
-GOOD = {"status": "scenario_only", "conclusion": "若测试可复查，则可能推动后续发布。", "scenarios": ["若独立验证成功，则推进发布。"]}
+BAD = {"status": "completed", "conclusion": "比例合计错误", "probabilities": {"推进": .8, "受限": .8}, "scenarios": ["普及率达35%"]}
+GOOD = {"status": "completed", "probabilities": {"推进": .5, "延后": .3, "受限": .2}, "conclusion": "若测试可复查，则可能推动后续发布。", "scenarios": ["若独立验证成功，则推进发布。"]}
 
 
-def test_two_invalid_reports_fail_without_completed_checkpoint(tmp_path, monkeypatch):
+def test_two_invalid_reports_keep_audited_source_fallback_without_fabricating_probability(tmp_path, monkeypatch):
     record = saved_report(tmp_path)
     record.usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
     model = ReportModel([BAD, BAD]); monkeypatch.setattr(graph, "ModelClient", lambda **kwargs: model)
     store = RunStore(tmp_path)
     graph.execute(record, record.evidence, store, resume=True)
     saved = store.get(record.run_id)
-    assert saved.status == "failed" and saved.stage == "failed" and saved.failed_stage == "forecast"
-    assert saved.forecast is None and "forecast" not in saved.stage_outputs
-    assert "定量比例" in saved.errors[-1]
+    assert saved.status == "partial" and saved.stage == "done" and saved.failed_stage is None
+    assert saved.forecast.probabilities is None and "forecast" in saved.stage_outputs
+    assert saved.forecast.supporting[0].evidence_ids == ["E001"]
+    assert "合计" in saved.forecast.limitations[0]
     assert len(saved.forecast_attempts) == 2
     assert all(item.candidate.scenarios == BAD["scenarios"] and item.validation_errors for item in saved.forecast_attempts)
     assert model.roles == ["forecast", "forecast"]
@@ -80,7 +81,7 @@ def test_second_valid_candidate_keeps_rejected_candidate_audit(tmp_path, monkeyp
     record = saved_report(tmp_path)
     model = ReportModel([BAD, GOOD]); monkeypatch.setattr(graph, "ModelClient", lambda **kwargs: model)
     graph.execute(record, record.evidence, RunStore(tmp_path), resume=True)
-    assert record.status == "scenario_only" and record.stage == "done"
+    assert record.status == "completed" and record.stage == "done"
     assert record.forecast.conclusion == GOOD["conclusion"]
     assert record.forecast_attempts[0].validation_errors
     assert record.forecast_attempts[1].validation_errors == []
@@ -104,7 +105,7 @@ def test_repair_endpoint_creates_bounded_child_and_preserves_parent(tmp_path, mo
         response = client.post(info["endpoint"])
         assert response.status_code == 202, response.text
         child = client.get(f"/api/runs/{response.json()['run_id']}").json()
-        assert child["status"] == "scenario_only" and child["forecast"]["conclusion"] == GOOD["conclusion"]
+        assert child["status"] == "completed" and child["forecast"]["conclusion"] == GOOD["conclusion"]
         assert child["parent_run_id"] == record.run_id and child["report_repair_parent"] == record.run_id
         assert child["report_repair_audit"]["parent_usage"]["calls"] == 34
         assert child["usage"]["calls"] == 1 and not child["report_repair"]["available"]
@@ -191,7 +192,7 @@ def test_report_child_does_not_charge_parent_retrieval_time_again(tmp_path, monk
         model = ReportModel([GOOD], **kwargs); models.append(model); return model
     monkeypatch.setattr(graph, "ModelClient", factory)
     graph.execute(child, child.evidence, RunStore(tmp_path), resume=True)
-    assert child.status == "scenario_only"
+    assert child.status == "completed"
     assert models[0].kwargs["initial_active_seconds"] == 0
     assert models[0].roles == ["forecast"]
     assert child.retrieval_result.retrieval_log[0].elapsed_seconds > config.MAX_SECONDS
@@ -209,7 +210,7 @@ def test_report_child_resume_keeps_durable_ledger_usage_after_crash(tmp_path, mo
         model = ReportModel([GOOD], **kwargs); models.append(model); return model
     monkeypatch.setattr(graph, "ModelClient", factory)
     graph.execute(child, child.evidence, store, resume=True)
-    assert child.status == "scenario_only"
+    assert child.status == "completed"
     assert models[0].kwargs["initial_usage"] == {"calls": 1, "prompt_tokens": 101, "completion_tokens": 21}
     assert child.usage == {"calls": 2, "prompt_tokens": 101, "completion_tokens": 21}
     assert models[0].kwargs["initial_active_seconds"] == 12
