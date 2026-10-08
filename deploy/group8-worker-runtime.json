@@ -1,0 +1,73 @@
+{
+  "image": "registry.mthreads.com/presale/devtech/vllm_musa:s4000_4.3.5_d0708",
+  "driver_mounts": [
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libusc_MUSA.so",
+      "destination": "/usr/lib/x86_64-linux-gnu/libusc_MUSA.so"
+    },
+    {
+      "source": "/usr/lib/libmtml.so",
+      "destination": "/usr/lib/libmtml.so"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libmusa_dri_support.so.1.0.0",
+      "destination": "/usr/lib/x86_64-linux-gnu/libmusa_dri_support.so.1.0.0"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libusc_MUSA.so.1.0.0",
+      "destination": "/usr/lib/x86_64-linux-gnu/libusc_MUSA.so.1.0.0"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libmusa.so",
+      "destination": "/usr/lib/x86_64-linux-gnu/libmusa.so"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libmusa.so.4.3.5",
+      "destination": "/usr/lib/x86_64-linux-gnu/libmusa.so.4.3.5"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libdrm_mtgpu.so.1.0.0",
+      "destination": "/usr/lib/x86_64-linux-gnu/libdrm_mtgpu.so.1.0.0"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libmusa_dri_support.so",
+      "destination": "/usr/lib/x86_64-linux-gnu/libmusa_dri_support.so"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libufwriter_MUSA.so.1.0.0",
+      "destination": "/usr/lib/x86_64-linux-gnu/libufwriter_MUSA.so.1.0.0"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libsrv_um_MUSA.so",
+      "destination": "/usr/lib/x86_64-linux-gnu/libsrv_um_MUSA.so"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libmtperf_target.so",
+      "destination": "/usr/lib/x86_64-linux-gnu/libmtperf_target.so"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libsrv_um_MUSA.so.1.0.0",
+      "destination": "/usr/lib/x86_64-linux-gnu/libsrv_um_MUSA.so.1.0.0"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libdrm_mtgpu.so.1",
+      "destination": "/usr/lib/x86_64-linux-gnu/libdrm_mtgpu.so.1"
+    },
+    {
+      "source": "/usr/bin/mthreads-gmi",
+      "destination": "/usr/bin/mthreads-gmi"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libdrm_mtgpu.so",
+      "destination": "/usr/lib/x86_64-linux-gnu/libdrm_mtgpu.so"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libmusa.so.1",
+      "destination": "/usr/lib/x86_64-linux-gnu/libmusa.so.1"
+    },
+    {
+      "source": "/usr/lib/x86_64-linux-gnu/libufwriter_MUSA.so",
+      "destination": "/usr/lib/x86_64-linux-gnu/libufwriter_MUSA.so"
+    }
+  ]
+}

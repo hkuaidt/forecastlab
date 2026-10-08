@@ -29,9 +29,10 @@ occupied card. If a model process exists but is unhealthy, inspect its log and
 drain application/router requests before any recovery. The script only accepts
 physical GPUs 4, 5, 6, 7, optionally selected with `--gpus`.
 
-The existing image and read-only driver mounts come from the retained, stopped
-`group8-qwen-tp4` container. Do not delete it without replacing this configuration
-source and preserving the rollback materials. Model weights and logs are under
+The existing image and read-only driver mounts are recorded in
+`deploy/group8-worker-runtime.json`. Recreating a worker no longer depends on
+the original TP4 container; the manifest is restricted to reviewed read-only
+driver files and the group8 model directory. Model weights and logs are under
 `/home/group8/work/qwen-text`, including `logs/inference-tp1-gpuN-perf.log`.
 
 ## Measured behavior
@@ -58,9 +59,16 @@ Fixed 256-token microbenchmarks do not measure final report quality.
 
 ## Rollback
 
-The saved `rollback-tp4.sh` in the benchmark directory refuses to run while an
+The original containers were deleted by an unidentified caller at 2026-10-09
+00:37:24 CST. Four isolated TP1 workers were recreated from the saved configuration.
+The old `rollback-tp4.sh` additionally requires the original TP4 container to exist;
+it must not be advertised as a currently executable rollback until that container
+is explicitly restored. The saved script refuses to run while an
 application run is active or port 18048 is occupied. Drain the application and
 router, then coordinate stopping the router before invoking rollback. It checks
 all candidate containers are owned by group8 and restricted to allowed physical
-GPUs before stopping TP1/TP2 workers and restarting the retained original TP4.
+GPUs before stopping TP1/TP2 workers and starting a separately restored TP4 only after confirming GPU memory is released.
 No shared driver, host setting or other account's service is involved.
+
+Account-local supervision and maintenance controls are documented in
+[GROUP8_SUPERVISION.md](GROUP8_SUPERVISION.md).

@@ -529,6 +529,16 @@ class Claim(BaseModel):
     simulation_ids: list[str] = Field(default_factory=list)
 
 
+class ScenarioDetail(BaseModel):
+    name: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    conditions: list[str] = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+    evidence_ids: list[str] = Field(default_factory=list)
+    assumption_ids: list[str] = Field(default_factory=list)
+    simulation_ids: list[str] = Field(default_factory=list)
+
+
 class Forecast(BaseModel):
     status: Literal["completed", "insufficient_evidence", "scenario_only", "partial"]
     probability_basis: Literal["full", "evidence_only"] = "full"
@@ -539,6 +549,7 @@ class Forecast(BaseModel):
     opposing: list[Claim] = Field(default_factory=list)
     key_assumptions: list[str] = Field(default_factory=list)
     scenarios: list[str] = Field(default_factory=list)
+    scenario_details: list[ScenarioDetail] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     new_information: list[str] = Field(default_factory=list)
 
@@ -555,6 +566,7 @@ class ScenarioForecast(Forecast):
     status: Literal["completed"] = "completed"
     probability_basis: Literal["full"] = "full"
     probabilities: dict[str, float]
+    scenario_details: list[ScenarioDetail] = Field(min_length=2)
 
 
 class EvidenceOnlyForecast(Forecast):
@@ -612,7 +624,7 @@ class RunRecord(BaseModel):
     question: QuestionSpec
     evidence_mode: str
     demo: bool = False
-    status: Literal["queued", "running", "completed", "insufficient_evidence", "scenario_only", "partial", "failed", "interrupted"] = "queued"
+    status: Literal["queued", "running", "completed", "insufficient_evidence", "scenario_only", "partial", "failed", "interrupted", "cancelled"] = "queued"
     stage: str = "queued"
     failed_stage: str | None = None
     stage_durations: dict[str, float] = Field(default_factory=dict)
@@ -630,6 +642,7 @@ class RunRecord(BaseModel):
     forecast_attempts: list[ForecastAttempt] = Field(default_factory=list)
     report_repair_parent: str | None = None
     report_repair_audit: dict[str, object] = Field(default_factory=dict)
+    forecast_policy: dict[str, object] = Field(default_factory=dict)
     settlement: Settlement | None = None
     model: str
     prompt_version: str = "v2"

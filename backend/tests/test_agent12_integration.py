@@ -1,3 +1,4 @@
+from scenario_fixtures import scenario_output
 from copy import deepcopy
 from datetime import timedelta
 import pytest
@@ -33,7 +34,7 @@ class WorkflowModel:
                     "supporting": [{"text": "资料声称测试已完成", "evidence_ids": ["E001"]}]}
         else:
             raise AssertionError(f"Unexpected role {role}")
-        return schema.model_validate(body)
+        return schema.model_validate(scenario_output(body))
 
 
 def confirmed(store, data, *, condition=False):
@@ -174,7 +175,7 @@ def test_confirmed_simulation_does_not_require_optional_assessment_payload(tmp_p
                     self.environment_calls += 1
                     assert "evidence_assessment" not in payload
                     assert payload["question_framing"]["premises"][0]["content"]
-                return schema.model_validate(body)
+                return schema.model_validate(scenario_output(body))
             return super().complete(role, payload, schema, instructions, **kwargs)
     store = RunStore(tmp_path)
     c = confirmed(store, clear_framing)

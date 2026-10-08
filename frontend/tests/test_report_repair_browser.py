@@ -184,8 +184,11 @@ def test_polling_syncs_terminal_run_into_sidebar_and_history(page, app_url, term
                      "failed_stage": "simulation" if terminal_status == "failed" else None})
     # Keep the list endpoint stale: the specific run response is the authoritative update.
     routes(page, runs=[running])
-    page.route("**/api/runs/run_fixture", lambda route: route.fulfill(
-        content_type="application/json", body=json.dumps(terminal, ensure_ascii=False)))
+    reads = []
+    def run_detail(route):
+        reads.append(route.request.url)
+        route.fulfill(content_type="application/json", body=json.dumps(running if len(reads) == 1 else terminal, ensure_ascii=False))
+    page.route("**/api/runs/run_fixture", run_detail)
     page.goto(app_url + "#/research/run_fixture/canvas")
     expect(page.locator(".work-status .status-label")).to_have_text("推演中")
     expect(page.locator(".directory-history > button.current small")).to_contain_text("推演中")

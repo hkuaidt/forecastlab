@@ -1,3 +1,4 @@
+from scenario_fixtures import scenario_output
 from copy import deepcopy
 from pathlib import Path
 
@@ -38,7 +39,7 @@ class ResumeModel:
                     "evidence_ids": ["E001"]}]}
         else:
             raise AssertionError(role)
-        return schema.model_validate(body)
+        return schema.model_validate(scenario_output(body))
 
 
 def old_record(tmp_path):

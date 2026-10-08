@@ -78,3 +78,27 @@ def restore_legacy_evidence_stage(record: RunRecord, data_dir: Path) -> bool:
     record.evidence_assessment = assessment
     record.retrieval_result = retrieval
     return True
+
+
+def verify_saved_evidence_stage(record: RunRecord, data_dir: Path) -> None:
+    """Locally recheck current caches too; do not mutate stages or promote trust."""
+    stage = record.stage_outputs.get("evidence")
+    if not isinstance(stage, dict):
+        return
+    raw = stage.get("evidence_assessment")
+    evidence = [Evidence.model_validate(item) for item in stage.get("evidence", [])]
+    if len({source.id for source in evidence}) != len(evidence):
+        raise ValueError("恢复证据核验失败：证据编号重复")
+    for source in evidence:
+        try:
+            snapshot = load_snapshot(source, data_dir)
+            original = {p.paragraph_id: p for p in split_passages(snapshot)}
+            for passage in source.passages:
+                if original.get(passage.paragraph_id) != passage:
+                    raise ValueError("保存段落与原文不一致")
+        except (ValueError, OSError) as exc:
+            raise ValueError(f"恢复证据核验失败：{source.id} {exc}") from exc
+    if isinstance(raw, dict) and raw.get("findings") and raw.get("findings_validated") is True:
+        private = record.model_copy(deep=True)
+        private.stage_outputs["evidence"]["evidence_assessment"].pop("findings_validated")
+        restore_legacy_evidence_stage(private, data_dir)

@@ -1,3 +1,4 @@
+from scenario_fixtures import scenario_output
 """Application validation failures remain failed and repair never trusts stale sources."""
 from copy import deepcopy
 from pathlib import Path
@@ -32,7 +33,7 @@ class ReportModel:
                     "evidence_id": source["id"], "snapshot_hash": source["snapshot_hash"],
                     "paragraph_id": passage["paragraph_id"], "quote": passage["text"]}]}]})
         assert role == "forecast", "Repair must not search, reassess, or rerun the world"
-        return schema.model_validate(next(self.outputs))
+        return schema.model_validate(scenario_output(next(self.outputs)))
 
 
 def saved_report(tmp_path, *, legacy=False):

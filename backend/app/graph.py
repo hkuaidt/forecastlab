@@ -15,11 +15,11 @@ from .schemas import RetrievalResult, RetrievalLog, RetrievalTask, Assumption
 from .agents.evidence import (assess_evidence, active_framing, make_evidence_context, EvidenceStageError,
                               verified_coverage_summary)
 from .llm import unique_request_count, request_active_seconds
-from .llm import BudgetExceeded, ModelClient
+from .llm import BudgetExceeded, ModelClient, ModelCancelled
 from .demo import demo_output
 from . import config
 from .cutoff_gaps import is_future_outcome_gap
-from .resume import restore_legacy_evidence_stage
+from .resume import restore_legacy_evidence_stage, verify_saved_evidence_stage
 
 
 class FlowState(TypedDict, total=False):
@@ -235,7 +235,7 @@ def canonicalize_forecast_ids(forecast: Forecast, evidence: list[Evidence], worl
     evidence_ids = {item.id for item in evidence}
     assumption_ids = {item.id for item in world.assumptions}
     simulation_ids = {item.id for item in simulation}
-    for claim in forecast.supporting + forecast.opposing:
+    for claim in [*forecast.supporting, *forecast.opposing, *forecast.scenario_details]:
         claim.evidence_ids = canonical_ids(claim.evidence_ids, evidence_ids)
         claim.assumption_ids = canonical_ids(claim.assumption_ids, assumption_ids)
         claim.simulation_ids = canonical_ids(claim.simulation_ids, simulation_ids)
@@ -259,6 +259,22 @@ _MODEL_DERIVED_RATE = re.compile(
 def scenario_forecast_context(payload: dict) -> dict:
     """Mask derived rates in a private model input, never source/audit records."""
     safe = deepcopy(payload)
+    question = safe.get("question", {})
+    if question.get("mode") == "scenario":
+        old_rule = question.get("resolution_rule") or ""
+        question["resolution_rule"] = re.sub(
+            r"(?:概率|probabilities?)\s*(?:必须为|应为|为|是|[:=])\s*null\b|不输出概率",
+            "输出未经校准的场景主观概率", old_rule, flags=re.I)
+        old_outcomes = question.get("outcomes", [])
+        default_binary = {str(item).strip().casefold() for item in old_outcomes} in ({"是", "否"}, {"yes", "no"})
+        if default_binary:
+            question["outcomes"] = []
+        safe["forecast_policy"] = {
+            "version": "scenario-probability-v2", "mode": "scenario",
+            "probabilities": "subjective_uncalibrated", "scenario_details_required": True,
+            "legacy_null_directive_replaced": question["resolution_rule"] != old_rule,
+            "legacy_binary_outcomes_ignored": default_binary,
+        }
 
     def mask(value, key=""):
         # Trace identities and source/time metadata must remain stable.
@@ -379,6 +395,14 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
             raise ValueError("报告主张没有可展开的依据")
         if evidence_only and (claim.assumption_ids or claim.simulation_ids):
             raise ValueError("仅依据证据的概率不能引用假设或模拟")
+    for detail in forecast.scenario_details:
+        check_ids(detail.evidence_ids, evidence_ids, "情景说明证据")
+        check_ids(detail.assumption_ids, assumption_ids, "情景说明假设")
+        check_ids(detail.simulation_ids, simulation_ids, "情景说明模拟")
+        if not (detail.evidence_ids or detail.assumption_ids or detail.simulation_ids):
+            raise ValueError(f"情景 {detail.name} 缺少可展开的E/H/S依据")
+        if evidence_only and (detail.assumption_ids or detail.simulation_ids):
+            raise ValueError("仅依据证据的情景说明不能引用假设或模拟")
     check_ids(forecast.key_assumptions, assumption_ids, "关键假设")
     if evidence_only and forecast.key_assumptions:
         raise ValueError("仅依据证据的概率不能依赖建模假设")
@@ -415,6 +439,10 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
         if (any(not isfinite(p) or p < 0 or p > 1 for p in forecast.probabilities.values())
                 or abs(sum(forecast.probabilities.values()) - 1) > .001):
             raise ValueError("概率须在 0–1 且合计为 1")
+        if question.mode == "scenario" and forecast.scenario_details:
+            names = [detail.name for detail in forecast.scenario_details]
+            if len(set(names)) != len(names) or set(names) != set(forecast.probabilities):
+                raise ValueError("scenario_details名称必须与probabilities逐项对应且不重复")
         forecast.status = "completed"
         note = "概率为模型基于现有证据与假设给出的主观分配，未经校准，不是来源实测频率。"
         if note not in forecast.limitations:
@@ -475,15 +503,22 @@ STAGE_NODES = (
 )
 
 
-def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient | None, data_dir, *, start_at: str = "define_question", store=None):
+def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient | None, data_dir, *, start_at: str = "define_question", store=None, cancel_event=None):
+    def check_cancelled():
+        if cancel_event is not None and cancel_event.is_set():
+            raise ModelCancelled("运行已取消")
     def ask(role, payload, schema, instructions, *, actor_id=None, round_number=1):
+        check_cancelled()
         if record.demo:
             return schema.model_validate(demo_output(role, actor_id, round_number))
         if record.question_framing:
             payload = dict(payload)
             is_evidence_only = role == "evidence_audit" or (role == "forecast" and payload.get("valid_assumption_ids") == [] and "world" not in payload)
+            frame_context = active_framing(record.question_framing)
             if not is_evidence_only:
-                payload["question_framing"] = active_framing(record.question_framing)
+                payload["question_framing"] = frame_context
+            else:
+                payload["clarification_answers"] = frame_context["clarification_answers"]
             key = "evidence" if "evidence" in payload else "visible_evidence" if "visible_evidence" in payload else None
             if key and record.evidence_assessment:
                 ids = {e["id"] for e in payload[key]}
@@ -500,6 +535,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                     frame = payload["question_framing"]
                     payload["question_framing"] = {
                         "revision": frame["revision"], "proposed_spec": frame["proposed_spec"],
+                        "clarification_answers": frame["clarification_answers"],
                         "premises": [{key: premise[key] for key in ("content", "user_review", "treatment")}
                                      for premise in frame["premises"]],
                     }
@@ -512,7 +548,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                             return [remove_premise_targets(item) for item in value]
                         return value
                     payload["evidence_assessment"] = remove_premise_targets(payload["evidence_assessment"])
-            instructions += " 待核查前提不是事实；P不能作为外部证据。"
+            instructions += (" 待核查前提不是事实；P不能作为外部证据。"
+                "clarification_answers是用户确认的研究范围/任务说明，应遵守其范围，不能当作E外部证据或已核实事实，也不需要再次要求用户确认。")
         if record.evidence_assessment and record.evidence_assessment.findings_validated:
             if role == "review":
                 instructions += (" F编号是经过原文校验的Agent 2结构化发现，可在affected_ids中定位审查对象，"
@@ -530,9 +567,17 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                                if key not in {"summary_audit", "rejected_findings"}}
             safe_assessment["summary"] = verified_coverage_summary(assessment)
             payload["evidence_assessment"] = safe_assessment
-        return model.complete(role, payload, schema, instructions)
+        if role == "forecast" and payload.get("question", {}).get("mode") == "scenario" and "question_framing" in payload:
+            payload = deepcopy(payload)
+            proposed = payload["question_framing"].get("proposed_spec")
+            if isinstance(proposed, dict):
+                payload["question_framing"]["proposed_spec"] = scenario_forecast_context({"question": proposed})["question"]
+        result = model.complete(role, payload, schema, instructions)
+        check_cancelled()
+        return result
 
     def question_node(state: FlowState):
+        check_cancelled()
         question = QuestionSpec.model_validate(state["question"])
         if record.question_framing:
             frame = record.question_framing
@@ -551,6 +596,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         return {"question_analysis": analysis.model_dump(mode="json")}
 
     def evidence_node(state: FlowState):
+        check_cancelled()
         question = QuestionSpec.model_validate(state["question"])
         if record.question_framing or record.retrieval_result is not None or (record.evidence_mode == "online" and not record.demo):
             retrieval = record.retrieval_result
@@ -603,6 +649,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         return {"evidence": [e.model_dump(mode="json") for e in items], "evidence_assessment": assessment.model_dump(mode="json")}
 
     def world_node(state: FlowState):
+        check_cancelled()
         question = QuestionSpec.model_validate(state["question"])
         evidence = [Evidence.model_validate(x) for x in state["evidence"]]
         evidence_ids = {e.id for e in evidence}
@@ -621,8 +668,9 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             "经过原文校验的 F 可以作为假设的中间溯源节点，但不能假装它是独立来源。"
             "assumption.parent_ids 仅允许 E、经过校验的 F 或本次定义的 H 编号；"
             "world.evidence_refs 和 actor.visible_evidence_ids 必须引用 E。"
-            "若无战略主体，可留空 actors 并说明原因。主体最多 3 个。"
+            "若无战略主体，可留空 actors 并说明原因。通常选择3–4个有实际决策作用且互不重复的主体，最多4个；根据问题需要可更少，不能为凑数虚构主体。"
             "信息截至日之后尚未发生的事件不能陈述为既成事实。"
+            "summary用3–5句解释当前状态、驱动因素、约束与关键不确定性；每个假设的rationale解释依据与反证，主体的目标/资源/约束写具体。"
         )
         for attempt in range(2):
             world = ask("world", world_payload, WorldState, world_instructions)
@@ -639,7 +687,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                     raise
                 world_payload["validation_feedback"] = str(exc)
                 world_payload["invalid_output"] = world.model_dump(mode="json")
-        world.actors = world.actors[:3]
+        world.actors = world.actors[:4]
         canonicalize_world_ids(world)
         allowed_conditions = set(question.user_assumptions)
         if record.question_framing:
@@ -691,6 +739,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         return {"world": world.model_dump(mode="json"), "premise_assumption_map": mapping}
 
     def simulation_node(state: FlowState):
+        check_cancelled()
         question = QuestionSpec.model_validate(state["question"])
         world = WorldState.model_validate(state["world"])
         evidence = [Evidence.model_validate(x) for x in state["evidence"]]
@@ -699,6 +748,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         actions, steps = [], []
         current = world.model_dump(mode="json")
         for round_number in (1, 2):
+            check_cancelled()
             parent = round_number - 1
             def actor_call(actor):
                 visible = evidence_for_model([e for e in evidence if e.id in actor.visible_evidence_ids], 1000)
@@ -711,9 +761,14 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                     "valid_assumption_ids": sorted(actor_h_ids),
                 }
                 actor_instructions = (
+                    "你只扮演actor所指定的现实主体，根据其目标、资源、权限和约束选择一项可执行的现实行动，说明行动对象与实施方式。"
+                    "你不是替用户撰写研究报告的助手：问题里的情景数量、概率分配和报告格式是本研究的交付要求，"
+                    "不得把‘提出本研究的情景推演’‘给出概率’或‘完成本研究报告’当作主体行动。"
+                    "主体自身开展实验、部署工具、调整资助或评审流程等现实工作可以作为行动。"
                     "仅做一次条件性行动；evidence_ids 只允许 valid_evidence_ids 中的 E，"
                     "assumption_ids 只允许 valid_assumption_ids 中的 H。H 是假设而不是证据。"
                     "不得声称预测期计划或假设的行动已经发生。"
+                    "rationale_summary用2–3句说明为何选择该行动、受哪些证据和约束影响；expected_impact解释作用机制与失败条件，不只给动作标题。"
                 )
                 for attempt in range(2):
                     action = ask("actor", actor_payload, ActorAction, actor_instructions,
@@ -737,7 +792,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 action.evidence_ids, _ = resolve_refs(action.evidence_ids, {e["id"] for e in visible})
                 action.assumption_ids, _ = resolve_refs(action.assumption_ids, {a.id for a in world.assumptions})
                 return action
-            with ThreadPoolExecutor(max_workers=min(3, len(world.actors))) as pool:
+            with ThreadPoolExecutor(max_workers=min(4, len(world.actors))) as pool:
                 round_actions = list(pool.map(actor_call, world.actors))
             actions.extend(round_actions)
             allowed_variables = set(current.get("variables", {}))
@@ -745,9 +800,12 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                             "round": round_number, "allowed_variable_keys": sorted(allowed_variables)}
             step = ask("environment", step_payload, SimulationStep,
                        f"联合处理全部行动；保留冲突与条件。当前信息截至时间为 {question.as_of.isoformat()}。"
+                       "你只推演这些现实主体行动对世界状态的影响，不替用户编写情景报告；情景数量、概率和输出格式不是世界事件或状态变量。"
+                       "若某项行动只是描述本研究该怎样输出报告，不能据此制造现实变化，应在unresolved说明其缺少可执行行为。"
                        "此后状态只能用‘若...则...’的条件式描述，绝不能把计划或模拟结果写成已发生的历史事实。"
                        "state_changes 的键只能从 allowed_variable_keys 中选择，不得新增变量名；"
-                       "如需提出新维度，请写在 summary 或 unresolved 中。", round_number=round_number)
+                       "如需提出新维度，请写在 summary 或 unresolved 中。"
+                       "summary用3–5句描述行动如何相互影响、形成哪些变化及仍未解决的条件；state_changes逐项解释变化原因。", round_number=round_number)
             unknown_variables = set(step.state_changes) - allowed_variables
             if unknown_variables:
                 step.state_changes = {key: value for key, value in step.state_changes.items() if key in allowed_variables}
@@ -768,6 +826,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         return {"actions": [a.model_dump(mode="json") for a in actions], "simulation": [s.model_dump(mode="json") for s in steps]}
 
     def review_node(state: FlowState):
+        check_cancelled()
         question = QuestionSpec.model_validate(state["question"])
         evidence = [Evidence.model_validate(x) for x in state["evidence"]]
         world = WorldState.model_validate(state["world"])
@@ -785,7 +844,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             **trace_for_model(state), "valid_affected_ids": sorted(valid_review_ids),
         }
         review_instructions = (
-            "检查证据是否支持关键判断、遗漏反证和模拟跳步。最多五个简洁问题。"
+            "检查证据是否支持关键判断、遗漏反证和模拟跳步。最多五个重点问题。"
+            "每个问题的explanation用2–3句交代原始依据、推断缺口及对情景概率的影响，并给出可补充的具体资料；不要只有笼统标签。"
             "审查时关注 evidence_assessment.quality_profile 的来源覆盖和限制；"
             "来源组不等于独立认证，来源数量不能自动修改概率或成为 blocked 判据。"
             "不要求预测期尚未发生的结果作为证据。affected_ids 只能使用 valid_affected_ids；"
@@ -866,6 +926,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         return {"review": review.model_dump(mode="json")}
 
     def forecast_node(state: FlowState):
+        check_cancelled()
         question = QuestionSpec.model_validate(state["question"])
         evidence = [Evidence.model_validate(x) for x in state["evidence"]]
         world = WorldState.model_validate(state["world"])
@@ -923,10 +984,14 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         instructions += (" 区分来源事实、假设与模拟；对未核实关系和数值说明限制，不把模型推演称为实测。")
         if question.mode == "scenario":
             forecast_payload = scenario_forecast_context(forecast_payload)
+            record.forecast_policy = deepcopy(forecast_payload.get("forecast_policy", {}))
             forecast_schema = ScenarioForecast if evidence else Forecast
             probability_instructions = (
                 "这是开放场景研究：只要已有证据，就必须给出非null的probabilities。"
                 "优先使用三个清楚命名、互斥且覆盖主要可能性的情景作为键，概率数值在0到1之间、合计为1；"
+                "scenario_details必须与每个概率键同名：definition说明到目标时点的具体状态与情景边界；"
+                "conditions列2–4个可观察触发条件；rationale用2–4句说明为何赋予该相对概率、证据支持及不确定性，"
+                "并分别填有效evidence_ids/assumption_ids/simulation_ids作为依据，不得只重复情景标题。"
                 "若问题已有合适的outcomes也可沿用。概率是未经校准的主观情景分配，不是来源实测频率。"
                 "证据有限或review=blocked只需降低把握并写入limitations，不要因此拒绝给概率。")
             if not evidence:
@@ -951,7 +1016,9 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         for attempt in range(2):
             try:
                 forecast = ask("forecast", forecast_payload, forecast_schema,
-                               instructions + "语言简洁。" + probability_instructions)
+                               instructions + "解释应充分且具体：结论2–4句，支持与反对主张说明来源联系和限制，每个情景应能独立读懂；避免只写标题或重复套话。" + probability_instructions)
+            except ModelCancelled:
+                raise
             except (ValueError, RuntimeError, BudgetExceeded) as exc:
                 if question.mode != "scenario":
                     raise
@@ -1009,6 +1076,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                                            if claim.evidence_ids or claim.assumption_ids or claim.simulation_ids]
                         validate_forecast(shadow, question, evidence, full_world, full_simulation, shadow_review)
                         record.shadow_forecast = shadow
+                    except ModelCancelled:
+                        raise
                     except (ValueError, RuntimeError, BudgetExceeded) as exc:
                         if shadow is not None:
                             try:
@@ -1069,15 +1138,19 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
     return graph.compile()
 
 
-def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool = False):
+def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool = False, cancel_event=None):
     model = None
     stage_names = [stage for stage, _ in STAGE_NODES]
     current_stage = stage_names[0]
     stage_started = time.monotonic()
     try:
+        if cancel_event is not None and cancel_event.is_set():
+            raise ModelCancelled("运行已取消")
         if resume:
             current_stage = "evidence"
             restore_legacy_evidence_stage(record, store.directory)
+            if not record.demo:
+                verify_saved_evidence_stage(record, store.directory)
             # Resume can skip world/review entirely. Enforce the evidence gate
             # before choosing a later checkpoint or constructing a model client.
             # The persisted stage, not a possibly stale top-level copy, is authoritative.
@@ -1100,7 +1173,7 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
             retrieval_seconds = (max((log.elapsed_seconds for log in record.retrieval_result.retrieval_log), default=0)
                                  if record.retrieval_result and not record.report_repair_parent else 0)
             measured_runtime = request_active_seconds(previous_calls) + retrieval_seconds
-            model = ModelClient(initial_usage=prior_usage,
+            model = ModelClient(initial_usage=prior_usage, cancel_event=cancel_event,
                 initial_active_seconds=prep_seconds + max(record.active_seconds, measured_runtime),
                 call_limit=cap, on_reserve=lambda h, v: store.reserve_call(record.run_id, "runtime", call_limit=cap,
                     input_hash=h, prompt_version=v), on_finish=store.finish_call)
@@ -1122,13 +1195,15 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
             record.errors = []
             record.resume_count += 1
             record.finished_at = None
-        graph = build_graph(record, imported, model, store.directory, start_at=start_at, store=store)
+        graph = build_graph(record, imported, model, store.directory, start_at=start_at, store=store, cancel_event=cancel_event)
         record.status = "running"
         record.stage = current_stage
         record.failed_stage = None
         store.save(record)
         stage_started = time.monotonic()
         for update in graph.stream(state, stream_mode="updates"):
+            if cancel_event is not None and cancel_event.is_set():
+                raise ModelCancelled("运行已取消")
             node, output = next(iter(update.items()))
             stage = {"define_question": "question", "retrieve": "evidence", "model_world": "world", "simulate": "simulation", "audit": "review", "synthesize": "forecast"}[node]
             record.stage_durations[stage] = round(time.monotonic() - stage_started, 3)
@@ -1160,6 +1235,11 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
             stage_started = time.monotonic()
         record.status = record.forecast.status
         record.stage = "done"
+    except ModelCancelled as exc:
+        record.status = "cancelled"
+        record.stage = "cancelled"
+        record.failed_stage = current_stage
+        record.errors.append(str(exc))
     except EvidenceStageError as exc:
         record.evidence = exc.result.evidence
         record.retrieval_result = exc.result

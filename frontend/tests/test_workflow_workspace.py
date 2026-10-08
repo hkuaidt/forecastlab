@@ -8,7 +8,7 @@ def test_workflow_navigation_and_mobile_detail(page,app_url,width):
     routes(page,runs=[evidence_run()])
     page.set_viewport_size({'width':width,'height':900})
     page.goto(app_url)
-    expect(page.locator('.work-header h1')).to_be_visible()
+    expect(page.locator('.work-header h1')).to_have_text(evidence_run()["question"]["question"])
     expect(page.locator('.tree-node').filter(has=page.get_by_text('阶段',exact=True))).to_have_count(6)
     page.get_by_role('button',name='阶段：证据核查',exact=True).press('Enter')
     expect(page.locator('.reading-header h2')).to_have_text('证据核查')

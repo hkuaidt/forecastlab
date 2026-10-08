@@ -18,8 +18,13 @@ model_inferred 表示从措辞推断的世界状态或因果前提，绝不冒�
 不要自己创造公司、地区、日期或成功阈值。已有 as_of、mode、resolve_by、resolution_rule、resolution_source
 和 user_assumptions 都视为用户已经给定的问题定义；只要这些字段内部一致，就不要再次追问更细口径、
 备用来源、格式偏好或常识性实体消歧。只有不回答就会导致两个合理解释产生不同结算结果时，才提出 blocking clarification；
-非关键补充应设 blocking=false 或直接省略。已回答的澄清不要重复。
+非关键补充应设 blocking=false 或直接省略。已回答的澄清不要重复；answers中的回答和历史resolved问题由用户确认，不可重新要求回答同一问题。
 未来结果尚未发生是研究目标，不是让用户补充的事实。user_assumptions 只能照抄用户明确填写的条件。
+用户指定scenario时，情景定义/判定条件、主观概率及理由、公开证据、主要不确定性是后续研究应产出的内容，
+不能反问用户先提供这些研究结果，也不能为这些输出要求建立blocking clarification。
+“请分析/分别考虑/给出情景/明确条件和概率/列出证据”等任务指令不是世界事实，不能列入premises；
+“将怎样影响/是否会发生”等问句也不预设其影响或结果已经成立。仅提取句中另外明确断言的可核查背景事实。
+检索研究对象和真实问题的公开资料，不搜索“三个互斥情景、判定条件和概率”等输出格式要求；没有事实前提时使用background任务。
 最多3个检索任务，每个标注 purpose 和零起始 premise_indexes；方向可为 initial/challenge/alternative/background。
 只输出 FramingCandidate，不生成草稿编号、状态、确认记录或外部证据。"""
 
@@ -74,6 +79,69 @@ def _statement_text(text: str) -> str:
     return re.sub(r"\s+", "", text).rstrip("。.!！;；")
 
 
+
+# Output instructions are work for the research pipeline, not claims about the world.
+_TASK_INSTRUCTION = re.compile(
+    r"^(?:(?:请|需要|要求|希望|务必|应当|必须|分别|同时|并|再|还|本研究(?:需要|要求)?)\s*)*"
+    r"(?:给出|提供(?!方|者|商)|输出(?!结果|层|数据)|列出|列举|说明(?!书)|明确(?!的)|呈现|讨论|探讨|考虑(?!因素)|比较(?!基准|对象|结果|标准|数据)|评估(?!结果|报告)|推演(?!结果)|预测(?!结果|模型)|"
+    r"分析(?!显示|表明|发现|提出|指出|证实|确认|结果)|研究(?!显示|表明|发现|提出|指出|证实|确认|证明|认为|团队|对象|已经|已))"
+)
+_SCENARIO_OUTPUT_FIELDS = {
+    "判定条件", "判定标准", "情景判定条件", "情景条件", "情景定义", "情景", "场景", "概率", "概率依据", "概率评估依据",
+    "公开证据", "主要不确定性", "不确定性", "输出格式", "分析方法",
+    "scenarios", "scenario_definitions", "scenario_conditions", "probability", "probabilities",
+    "probability_basis", "evidence", "uncertainty", "uncertainties", "output_format", "methodology",
+}
+_SCENARIO_OUTPUT_REQUEST = re.compile(
+    r"(?:请|需要|请您).{0,16}(?:给出|提供|列出|说明|明确|确定|设定).{0,60}"
+    r"(?:每个情景|各个情景|情景的(?:判定|条件|概率|定义)|场景的(?:条件|概率)|概率(?:评估|依据|分配|[，。？?]|$)|公开证据|主要不确定性)"
+)
+_QUESTION_FORM = re.compile(r"怎样|如何|是否|能否|会不会|何时|[？?]")
+_ASSERTION_LEAD = re.compile(r"既然|因为|由于|鉴于|假设|已经|已(?:取得|完成|发布|发生|证明|宣布)|曾经")
+
+
+def research_instruction_premise(premise) -> bool:
+    content = premise.content.strip()
+    span = premise.original_span.strip()
+    if re.match(r"^(?:研究)?范围(?:限定|界定|设定)?(?:为|是|[:：])", span):
+        return True
+    literal = _statement_text(content) in _statement_text(span)
+    if literal:
+        # "研究投入增加20%" is a factual assertion despite starting with a
+        # word that can also be a verb. Only clear task/output requests override
+        # the protection for an exact user statement.
+        explicit_task = re.match(r"^(?:请|需要|要求|希望|务必|应当|必须|分别|本研究(?:需要|要求))", content)
+        output_request = re.match(r"^(?:给出|列出|列举|输出|明确|说明)", content) and re.search(
+            r"情景|场景|概率|判定条件|公开证据|主要不确定性", content)
+        return bool(_TASK_INSTRUCTION.search(content) and (explicit_task or output_request))
+    if _TASK_INSTRUCTION.search(content):
+        return True
+    if _TASK_INSTRUCTION.search(span):
+        return True
+    return bool(_QUESTION_FORM.search(span) and not _ASSERTION_LEAD.search(span))
+
+
+def _output_only_query(query: str) -> bool:
+    text = query.strip()
+    instruction = _TASK_INSTRUCTION.search(text)
+    if instruction:
+        text = text[instruction.end():].strip()
+    return bool(re.search(
+        r"^(?:[一二三四五六七八九十0-9]+[个种])?(?:互斥|覆盖主要可能性)|"
+        r"^(?:情景|场景)(?:定义|判定条件|概率)|^(?:判定条件|概率|公开证据|主要不确定性)(?:[、，与和及\s]|$)", text))
+
+
+def _background_query(question: str) -> str:
+    # Remove only presentation instructions; keep the user's research subject.
+    text = re.sub(r"^(?:请)?(?:推演|预测|展望)(?:至|到)[^：:？?]{1,30}[：:]", "", question.strip())
+    for clause in re.split(r"[？?。；;]", text):
+        clause = clause.strip()
+        if not clause or _output_only_query(clause):
+            continue
+        return re.sub(r"怎样|如何|是否|能否", "", clause)[:400]
+    return ""
+
+
 def question_spec_restatement(premise, spec: QuestionDraft | None = None) -> bool:
     """Reject recognizable schema restatements, not facts sharing a field's subject."""
     content = premise.content.strip()
@@ -91,6 +159,43 @@ def question_spec_restatement(premise, spec: QuestionDraft | None = None) -> boo
     if premise.origin == "model_inferred" and re.search(r"(?:二元(?:判定|问题|模式)|是/否|是否.*二元)", content):
         return True
     return False
+
+
+
+def merge_clarification_answers(clarifications, request, previous):
+    """User answers own resolution; candidate ordering never owns stable IDs."""
+    old = previous.clarifications if previous else []
+    identity = lambda c: (c.field.strip().casefold(), _statement_text(c.question).casefold())
+    by_identity = {identity(c): c for c in old}
+    answers = {a.clarification_id: a.answer for a in request.answers}
+    next_number = max([0] + [int(c.id[1:]) for c in old if re.fullmatch(r"C[0-9]+", c.id)]) + 1
+    result, seen = [], set()
+    for candidate in clarifications:
+        key = identity(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        saved = by_identity.get(key)
+        item = candidate.model_copy(deep=True)
+        if saved:
+            item.id = saved.id
+            if saved.id in answers:
+                item.answer, item.status = answers[saved.id], "resolved"
+            elif saved.status == "resolved" and saved.answer is not None:
+                item.answer, item.status = saved.answer, "resolved"
+        else:
+            item.id = f"C{next_number:03}"
+            next_number += 1
+        result.append(item)
+    for saved in old:
+        if identity(saved) in seen:
+            continue
+        if saved.id in answers or (saved.status == "resolved" and saved.answer is not None):
+            item = saved.model_copy(deep=True)
+            item.answer = answers.get(saved.id, saved.answer)
+            item.status = "resolved"
+            result.append(item)
+    return result
 
 
 def finalize_framing(candidate: FramingCandidate, request: AnalyzeQuestionRequest,
@@ -116,7 +221,10 @@ def finalize_framing(candidate: FramingCandidate, request: AnalyzeQuestionReques
         scenario_fields = {"mode", "resolve_by", "resolution_rule", "resolution_source", "resolution", "outcomes"}
         for name in ("resolve_by", "resolution_rule", "resolution_source"):
             setattr(proposed, name, getattr(request.question, name))
-        clarifications = [item for item in clarifications if item.field not in scenario_fields]
+        clarifications = [item for item in clarifications
+            if item.field not in scenario_fields
+            and item.field.strip().casefold() not in _SCENARIO_OUTPUT_FIELDS
+            and not _SCENARIO_OUTPUT_REQUEST.search(item.question)]
     if proposed.mode == "binary":
         for name, prompt in (("resolve_by", "请明确在哪个日期和时区判断结果。"),
                              ("resolution_rule", "什么可核对的情况算是，什么情况算否？")):
@@ -129,14 +237,19 @@ def finalize_framing(candidate: FramingCandidate, request: AnalyzeQuestionReques
         valid_spec = False
         if not clarifications:
             clarifications.append(QuestionClarification(id="C001", field="resolution", question="请核对结算时间晚于信息截点，且规则可以核查。"))
+    clarifications = merge_clarification_answers(clarifications, request, previous)
     old = previous.premises if previous else []
     next_number = max([previous.next_premise_number if previous else 1] + [int(p.id[1:])+1 for p in old])
     premises = []
     candidate_index_to_premise = {}
+    instruction_indexes = set()
     for candidate_index, c in enumerate(candidate.premises):
         if c.source_input_id not in texts or c.original_span not in texts[c.source_input_id]:
             raise ValueError("候选前提的原话未出现在指定用户输入中")
         if question_spec_restatement(c, request.question):
+            continue
+        if research_instruction_premise(c):
+            instruction_indexes.add(candidate_index)
             continue
         exact = next((p for p in old if (p.content, p.original_span, p.source_input_id, p.origin) ==
                       (c.content, c.original_span, c.source_input_id, c.origin)), None)
@@ -158,12 +271,20 @@ def finalize_framing(candidate: FramingCandidate, request: AnalyzeQuestionReques
             raise ValueError("检索任务引用了不存在的候选前提")
         targets = list(dict.fromkeys(candidate_index_to_premise[index].id for index in task.premise_indexes
                                      if index in candidate_index_to_premise))
-        if task.premise_indexes and not targets:
+        if _output_only_query(task.query):
+            continue
+        if task.premise_indexes and not targets and not set(task.premise_indexes) <= instruction_indexes:
             continue
         retained_targets = [p for p in targets if next(x for x in premises if x.id == p).user_review != "rejected"]
         if targets and not retained_targets:
             continue
-        tasks.append(RetrievalTask(id=f"R{i+1:03}", query=task.query, purpose=task.purpose, target_premise_ids=retained_targets))
+        tasks.append(RetrievalTask(id=f"R{i+1:03}", query=task.query,
+            purpose="background" if task.premise_indexes and not targets else task.purpose,
+            target_premise_ids=retained_targets))
+    if instruction_indexes and not tasks:
+        query = _background_query(request.question.question)
+        if query:
+            tasks.append(RetrievalTask(id="R001", query=query, purpose="background"))
     return QuestionFraming(draft_id=request.draft_id or f"draft_{uuid4().hex}", revision=previous.revision+1 if previous else 1,
         raw_question=previous.raw_question if previous else request.question.question, proposed_spec=proposed,
         inputs=inputs, premises=premises, clarifications=clarifications, alternative_directions=candidate.alternative_directions,

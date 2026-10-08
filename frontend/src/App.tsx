@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api } from './api'
 import { reportFailed, recordedSeconds, requestSeconds } from './researchStatus'
-import type { Evidence, FindingCitation, Health, Run } from './types'
+import type { Evidence, FindingCitation, Health, Run, RunSummary } from './types'
 import { ExecutionMap, phases, statusNames, type MapNode } from './decision/ExecutionMap'
 import { ResearchComposer } from './decision/ResearchComposer'
 import { DetailPanel, SourceReader, type DetailTab } from './decision/DetailPanel'
+
+type ActiveRun = Run & { cancel_requested?: boolean }
+const PAGE_SIZE = 20
+const summaryOf = (value: RunSummary | Run): RunSummary => ({run_id: value.run_id, question: value.question, status: value.status, stage: value.stage, started_at: value.started_at, finished_at: value.finished_at, parent_run_id: value.parent_run_id, model: value.model, demo: value.demo, is_demo: 'is_demo' in value ? value.is_demo : value.demo, evidence_mode: value.evidence_mode, report_failed: 'report_failed' in value ? value.report_failed : reportFailed(value as Run)})
+const summaryStatus = (value: RunSummary) => value.report_failed ? '报告待修复' : statusNames[value.status] || value.status
 
 type WorkspacePage = 'canvas' | 'evidence' | 'actors' | 'report'
 type WorkspaceRoute = { page: WorkspacePage; runId: string | null }
 const pageTitles: Record<WorkspacePage, string> = {
   canvas: '推演画布', evidence: '问题与证据', actors: '主体与行动', report: '研究报告',
 }
-const pageForTab: Record<DetailTab, WorkspacePage> = { event: 'evidence', actors: 'actors', report: 'report' }
 function readRoute(): WorkspaceRoute {
   const match = window.location.hash.match(/^#\/(?:research\/([^/]+)\/)?(canvas|evidence|actors|report)\/?$/)
   if (!match) return { page: 'canvas', runId: null }
@@ -53,18 +57,27 @@ function Modal({ children, onClose, label }: { children: ReactNode; onClose: () 
 
 export default function App() {
   const [health, setHealth] = useState<Health | null>(null)
-  const [history, setHistory] = useState<Run[]>([]), [run, setRun] = useState<Run | null>(null)
+  const [history, setHistory] = useState<RunSummary[]>([]), [run, setRun] = useState<ActiveRun | null>(null)
+  const [booted, setBooted] = useState(false), [historyMore, setHistoryMore] = useState(false), [historyLoading, setHistoryLoading] = useState(false)
+  const historyOffset = useRef(0), navigationEpoch = useRef(0), currentRun = useRef<ActiveRun | null>(null)
+  currentRun.current = run
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
+  const [composeParent, setComposeParent] = useState<Run | null>(null)
   const [route, setRoute] = useState<WorkspaceRoute>(readRoute)
   const [directoryCollapsed, setDirectoryCollapsed] = useState(initialDirectoryState)
   const [loading, setLoading] = useState(true)
   const [compose, setCompose] = useState(false), [historyOpen, setHistoryOpen] = useState(false)
   const [selected, setSelected] = useState<MapNode | null>(null)
   const [source, setSource] = useState<Evidence | null>(null), [citation, setCitation] = useState<FindingCitation | null>(null)
-  const [tab, setTab] = useState<DetailTab>('event'), [panelVisible, setPanelVisible] = useState(false)
-  const [error, setError] = useState(''), [filter, setFilter] = useState(''), [resuming, setResuming] = useState(false)
+  const [tab, setTab] = useState<DetailTab>('event'), [panelVisible, setPanelVisible] = useState(false), [readerExpanded, setReaderExpanded] = useState(false)
+  const [error, setError] = useState(''), [filter, setFilter] = useState('')
+  const resuming = !!run && busyIds.has(run.run_id)
+  function busy(id: string, value: boolean) { setBusyIds(old => { const next = new Set(old); value ? next.add(id) : next.delete(id); return next }) }
+  function remember(value: ActiveRun, preserveTerminal = false) { setHistory(rows => rows.some(r => r.run_id === value.run_id) ? rows.map(r => r.run_id === value.run_id && !(preserveTerminal && !['queued', 'running'].includes(r.status)) ? summaryOf(value) : r) : [summaryOf(value), ...rows]) }
+  function composeResearch(parent: Run | null = null) { setComposeParent(parent); setCompose(true) }
 
   useEffect(() => {
-    const changed = () => { setRoute(readRoute()); setSelected(null); setPanelVisible(false); setSource(null) }
+    const changed = () => { navigationEpoch.current++; setRoute(readRoute()); setSelected(null); setPanelVisible(false); setSource(null) }
     window.addEventListener('hashchange', changed)
     return () => window.removeEventListener('hashchange', changed)
   }, [])
@@ -73,23 +86,37 @@ export default function App() {
   }, [directoryCollapsed])
   useEffect(() => {
     let live = true
-    Promise.all([api<Health>('/health'), api<Run[]>('/runs')]).then(async ([h, rows]) => {
-      const requested = readRoute().runId
-      const initial = requested ? rows.find(r => r.run_id === requested) || await api<Run>(`/runs/${encodeURIComponent(requested)}`) : rows[0] || null
-      if (live) { setHealth(h); setHistory(rows); setRun(initial); setLoading(false) }
-    }).catch(e => { if (live) { setError(e.message); setLoading(false) } })
+    Promise.all([api<Health>('/health'), api<RunSummary[]>(`/runs?summary=true&limit=${PAGE_SIZE}&offset=0`)]).then(([h, rows]) => {
+      if (!live) return
+      setHealth(h); setHistory(rows.map(summaryOf)); historyOffset.current = rows.length; setHistoryMore(rows.length === PAGE_SIZE)
+      if (!readRoute().runId && rows[0]) {
+        const next = {page: readRoute().page, runId: rows[0].run_id}
+        window.history.replaceState(null, '', pageHref(next.page, next.runId)); setRoute(next)
+      }
+    }).catch(e => { if (live) setError(e.message) }).finally(() => { if (live) setBooted(true) })
     const timer = setInterval(() => api<Health>('/health').then(h => { if (live) setHealth(h) }).catch(() => {}), 15000)
     return () => { live = false; clearInterval(timer) }
   }, [])
   useEffect(() => {
-    if (loading || !route.runId || route.runId === run?.run_id) return
+    if (!booted) return
+    if (!route.runId) { setRun(null); setLoading(false); return }
     let live = true
-    const known = history.find(r => r.run_id === route.runId)
-    if (known) { setRun(known); return }
-    setRun(null)
-    api<Run>(`/runs/${encodeURIComponent(route.runId)}`).then(value => { if (live) setRun(value) }).catch(e => { if (live) setError(e.message) })
+    setLoading(true); setRun(null); setError('')
+    api<ActiveRun>(`/runs/${encodeURIComponent(route.runId)}`).then(value => {
+      if (live) { setRun(value); remember(value) }
+    }).catch(e => { if (live) setError(e.message) }).finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [route.runId, loading])
+  }, [route.runId, booted])
+  async function loadMoreHistory() {
+    if (historyLoading || !historyMore) return
+    setHistoryLoading(true)
+    try {
+      const rows = await api<RunSummary[]>(`/runs?summary=true&limit=${PAGE_SIZE}&offset=${historyOffset.current}`)
+      historyOffset.current += rows.length; setHistoryMore(rows.length === PAGE_SIZE)
+      setHistory(old => { const known = new Set(old.map(r => r.run_id)); return [...old, ...rows.filter(r => !known.has(r.run_id)).map(summaryOf)] })
+    } catch (e) { setError((e as Error).message) }
+    finally { setHistoryLoading(false) }
+  }
   useEffect(() => { setSelected(null); setSource(null); setPanelVisible(false); setTab(run?.forecast ? 'report' : 'event') }, [run?.run_id])
   useEffect(() => {
     if (!run || !['queued', 'running'].includes(run.status)) return
@@ -97,46 +124,60 @@ export default function App() {
     const id = run.run_id, timer = setInterval(() => {
       if (pending) return
       pending = true
-      api<Run>(`/runs/${encodeURIComponent(id)}`).then(r => {
+      api<ActiveRun>(`/runs/${encodeURIComponent(id)}`).then(r => {
         if (!live || r.run_id !== id) return
         setRun(current => current?.run_id === id ? r : current)
-        setHistory(rows => rows.map(row => row.run_id === id ? r : row))
+        remember(r)
       }).catch(e => { if (live) setError(e.message) }).finally(() => { pending = false })
     }, 1800)
     return () => { live = false; clearInterval(timer) }
   }, [run?.run_id, run?.status])
 
   function navigate(page: WorkspacePage, runId = run?.run_id) {
+    navigationEpoch.current++
     setSelected(null); setPanelVisible(false); setSource(null)
     window.location.hash = pageHref(page, runId)
     setRoute({ page, runId: runId || null })
   }
   async function created(id: string) {
-    try {
-      setRun(await api<Run>(`/runs/${id}`)); setHistory(await api<Run[]>('/runs'))
-      setCompose(false); navigate('canvas', id)
-    } catch (e) { setError((e as Error).message) }
+    setCompose(false); navigate('canvas', id)
   }
   async function resume() {
     if (!run) return
-    setResuming(true); setError('')
-    try { await api(`/runs/${run.run_id}/resume`, { method: 'POST' }); setRun(await api<Run>(`/runs/${run.run_id}`)) }
-    catch (e) { setError((e as Error).message) }
-    finally { setResuming(false) }
+    const id = run.run_id, epoch = navigationEpoch.current
+    busy(id, true); setError('')
+    try {
+      await api(`/runs/${encodeURIComponent(id)}/resume`, { method: 'POST' })
+      const value = await api<ActiveRun>(`/runs/${encodeURIComponent(id)}`)
+      remember(value, navigationEpoch.current !== epoch); setRun(current => navigationEpoch.current === epoch && current?.run_id === id ? value : current)
+    } catch (e) { if (navigationEpoch.current === epoch && currentRun.current?.run_id === id) setError((e as Error).message) }
+    finally { busy(id, false) }
   }
   async function repairReport() {
     if (!run || !run.report_repair?.available) return
-    setResuming(true); setError('')
+    const id = run.run_id, epoch = navigationEpoch.current
+    busy(id, true); setError('')
     try {
-      const result = await api<{ run_id: string }>(`/runs/${run.run_id}/repair-report`, { method: 'POST' })
-      setRun(await api<Run>(`/runs/${result.run_id}`)); setHistory(await api<Run[]>('/runs'))
-      navigate('report', result.run_id)
-    } catch (e) { setError((e as Error).message) }
-    finally { setResuming(false) }
+      const result = await api<{run_id: string}>(`/runs/${encodeURIComponent(id)}/repair-report`, {method: 'POST'})
+      const child = await api<ActiveRun>(`/runs/${encodeURIComponent(result.run_id)}`)
+      remember(child, true)
+      if (navigationEpoch.current === epoch && currentRun.current?.run_id === id) navigate('report', result.run_id)
+    } catch (e) { if (navigationEpoch.current === epoch && currentRun.current?.run_id === id) setError((e as Error).message) }
+    finally { busy(id, false) }
   }
-  function chooseRun(value: Run) { setRun(value); setHistoryOpen(false); navigate(route.page, value.run_id) }
+  async function cancelRun() {
+    if (!run || run.cancel_requested) return
+    const id = run.run_id, epoch = navigationEpoch.current
+    busy(id, true); setError('')
+    try {
+      const value = await api<ActiveRun>(`/runs/${encodeURIComponent(id)}/cancel`, {method: 'POST'})
+      remember(value, true); setRun(current => navigationEpoch.current === epoch && current?.run_id === id && ['queued', 'running'].includes(current.status) ? value : current)
+    } catch (e) { if (navigationEpoch.current === epoch && currentRun.current?.run_id === id) setError((e as Error).message) }
+    finally { busy(id, false) }
+  }
+  function chooseRun(value: RunSummary) { setHistoryOpen(false); navigate(route.page, value.run_id) }
   function inspect(node: MapNode) {
-    setSelected(node); setPanelVisible(true)
+    setSelected(node); setPanelVisible(true); setReaderExpanded(false)
     setTab(node.phase === 'forecast' || node.phase === 'review' ? 'report' : node.phase === 'world' || node.phase === 'simulation' ? 'actors' : 'event')
   }
   function inspectSource(value: Evidence) { setCitation(null); setSource(value) }
@@ -168,31 +209,33 @@ export default function App() {
   return <div className={`forecast-app research-desk ${directoryCollapsed ? 'directory-collapsed' : ''}`}>
     <aside id="research-directory" className="research-directory" hidden={directoryCollapsed}>
       <div className="desk-brand"><span>F/</span><div>ForecastLab<small>预测研究工作台</small></div></div>
-      <button className="directory-create" onClick={() => setCompose(true)}>＋ 新建研究</button>
+      <button className="directory-create" onClick={() => composeResearch()}>＋ 新建研究</button>
       <nav className="directory-nav" aria-label="研究导航">
         {navItems.map(item => <a key={item.page} href={pageHref(item.page, run?.run_id)} className={route.page === item.page ? 'active' : ''} aria-current={route.page === item.page ? 'page' : undefined}><span>{item.number}</span>{pageTitles[item.page]}<small>{item.detail}</small></a>)}
       </nav>
       <div className="directory-history">
         <div><small>最近研究</small><button onClick={() => setHistoryOpen(true)} aria-label="研究记录">全部 ↗</button></div>
-        {history.slice(0, 3).map(r => <button key={r.run_id} className={r.run_id === run?.run_id ? 'current' : ''} onClick={() => chooseRun(r)}><strong>{r.question.question}</strong><small>{new Date(r.started_at).toLocaleDateString('zh-CN')} · {reportFailed(r) ? '报告待修复' : statusNames[r.status] || r.status}</small></button>)}
+        {history.slice(0, 3).map(r => <button key={r.run_id} className={r.run_id === run?.run_id ? 'current' : ''} onClick={() => chooseRun(r)}><strong>{r.question.question}</strong><small>{new Date(r.started_at).toLocaleDateString('zh-CN')} · {summaryStatus(r)}</small></button>)}
       </div>
       <div className="directory-services">
-        <div><span className={health?.model_configured ? 'connection-dot' : 'connection-dot off'} />{health?.model_configured ? health.model : '模型未连接'}</div>
-        <div><span className={health?.search_configured ? 'connection-dot' : 'connection-dot off'} />{health?.search_configured ? '联网搜索可用' : '搜索待配置'}</div>
-        <small title={hasRequestTiming ? "已结束请求的输出总量除以活动时间，并发时不重复累计；包含输入处理，不是实时解码速度" : measuredSeconds ? "已完成请求的平均输出速度，包含输入处理与生成时间；不是纯生成速度" : "输出 token 除以已记录阶段的总耗时，包含检索、输入处理和生成"}>{rate === null ? '等待首个调用' : `${rateLabel} ${rate.toFixed(1)} token/s（含输入）`}</small>
+        <div title={health?.readiness?.model.detail}><span className={health?.model_ready === true ? 'connection-dot' : 'connection-dot off'} />{!health?.model_configured ? '模型未配置' : health.model_ready === true ? `${health.model} · 可用` : health.model_ready === false ? '模型暂不可用' : `${health.model} · 就绪状态未知`}</div>
+        <div title={health?.readiness?.search.detail}><span className={health?.search_ready === true ? 'connection-dot' : 'connection-dot off'} />{!health?.search_configured ? '搜索待配置' : health.search_ready === true ? '联网搜索可用' : health.search_ready === false ? '搜索暂不可用' : '搜索已配置 · 待请求验证'}</div>
+        <small title={hasRequestTiming ? "已结束请求的输出总量除以活动时间，并发时不重复累计；包含输入处理，不是实时解码速度" : measuredSeconds ? "已完成请求的平均输出速度，包含输入处理与生成时间；不是纯生成速度" : "输出 token 除以已记录阶段的总耗时，包含检索、输入处理和生成"}>{rate === null ? '等待首个调用' : `${rateLabel} ${rate.toFixed(1)} token/s（含输入处理耗时）`}</small>
       </div>
     </aside>
     <div className="desk-main">
       <header className="work-header">
         <div className="work-breadcrumb">
           <div className="workspace-location"><button className="directory-toggle" onClick={() => setDirectoryCollapsed(v => !v)} aria-expanded={!directoryCollapsed} aria-controls="research-directory" aria-label={directoryCollapsed ? '展开目录' : '隐藏目录'}><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3" width="15" height="14" rx="1.5" /><path d="M7 3v14" /></svg><span>{directoryCollapsed ? '展开目录' : '隐藏目录'}</span></button><span>研究空间 / {pageTitles[route.page]}</span></div>
-          <div className="workspace-shortcuts"><button onClick={() => setCompose(true)}>新建研究 ＋</button><button onClick={() => setHistoryOpen(true)}>切换研究 ↗</button></div>
+          <div className="workspace-shortcuts"><button onClick={() => composeResearch()}>新建研究 ＋</button><button onClick={() => setHistoryOpen(true)}>切换研究 ↗</button></div>
         </div>
         <h1>{run?.question.question || '把问题展开为可检查的路径'}</h1>
         <div className="work-status">
           <span className={`status-label ${run?.status || ''}`}>{run ? failedReport ? '报告待修复' : statusNames[run.status] || run.status : loading ? '正在载入' : '准备开始'}</span><span>{stageCount} / 6 阶段</span>
           <div className="stage-progress" aria-label={`${stageCount}个阶段已完成`}>{phases.map(([id, label]) => <i title={label} key={id} className={stageComplete(id) ? 'done' : ''} />)}</div>
           <span>{rounds.length} 轮演化</span><span title="累计记录的运行时间，不计服务停止和等待用户期间">累计运行 {Math.floor(Math.max(0, elapsed) / 60)} 分 {Math.floor(Math.max(0, elapsed) % 60)} 秒</span><span>{tokenTotal.toLocaleString()} tokens</span>
+          {run && ['queued', 'running'].includes(run.status) && <button className="run-stop" disabled={resuming || run.cancel_requested} onClick={cancelRun}>{run.cancel_requested ? '正在停止…' : '停止运行'}</button>}
+          {run?.status === 'cancelled' && <span className="run-status-note">已保留停止前的阶段记录，可继续运行或新建研究。</span>}
           {isCanvas && panelVisible && <button className="reading-toggle" onClick={() => setPanelVisible(false)} aria-label="收起详情面板">收起节点详情 ↓</button>}
         </div>
       </header>
@@ -201,15 +244,15 @@ export default function App() {
       {error && <div role="alert" className="app-alert"><span>{error}</span><button aria-label="关闭错误提示" onClick={() => setError('')}>×</button></div>}
       <main className={`research-space ${isCanvas && panelVisible ? 'panel-open' : ''}`} data-page={route.page} aria-busy={loading}>
         <section className="canvas-workspace" aria-label="推演画布" hidden={!isCanvas}>
-          <div className="canvas-area"><ExecutionMap run={run} onInspect={inspect} selectedId={selected?.id} />{!run && !loading && <div className="first-research"><small>开始一项研究</small><h2>提出问题，检查依据，探索可能的未来。</h2><p>每个节点连接一次真实的分析、取证或推演记录。</p><button className="primary" onClick={() => setCompose(true)}>新建事件研究 →</button></div>}</div>
-          {panelVisible && <DetailPanel run={run} tab={tab} node={selected} onClose={() => setPanelVisible(false)} onExpand={() => navigate(pageForTab[tab])} onClear={() => setSelected(null)} onSource={inspectSource} onCitation={inspectCitation} onNew={() => setCompose(true)} onRepair={repairReport} repairing={resuming} />}
+          <div className="canvas-area"><ExecutionMap run={run} onInspect={inspect} selectedId={selected?.id} />{!run && !loading && <div className="first-research"><small>开始一项研究</small><h2>提出问题，检查依据，探索可能的未来。</h2><p>每个节点连接一次真实的分析、取证或推演记录。</p><button className="primary" onClick={() => composeResearch()}>新建事件研究 →</button></div>}</div>
+          {panelVisible && <DetailPanel presentation={readerExpanded ? 'page' : 'panel'} run={run} tab={tab} node={selected} onClose={() => setPanelVisible(false)} onExpand={() => setReaderExpanded(value => !value)} onClear={() => setSelected(null)} onSource={inspectSource} onCitation={inspectCitation} onNew={() => composeResearch(run)} onRepair={repairReport} repairing={resuming} />}
         </section>
-        {!isCanvas && <DetailPanel key={`${run?.run_id}-${route.page}`} presentation="page" run={run} tab={pageTab} node={null} onClose={() => navigate('canvas')} onClear={() => setSelected(null)} onSource={inspectSource} onCitation={inspectCitation} onNew={() => setCompose(true)} onRepair={repairReport} repairing={resuming} />}
+        {!isCanvas && <DetailPanel key={`${run?.run_id}-${route.page}`} presentation="page" run={run} tab={pageTab} node={null} onClose={() => navigate('canvas')} onClear={() => setSelected(null)} onSource={inspectSource} onCitation={inspectCitation} onNew={() => composeResearch(run)} onRepair={repairReport} repairing={resuming} />}
       </main>
-      {run && !failedReport && ['failed', 'interrupted', 'partial'].includes(run.status) && <div className="resume-line"><span>运行在 {run.failed_stage || run.stage} 阶段中断</span><button disabled={resuming} onClick={resume}>从失败阶段继续 ↗</button></div>}
+      {run && !failedReport && !run.stage_outputs.forecast && ['failed', 'interrupted', 'partial', 'cancelled'].includes(run.status) && <div className="resume-line"><span>{run.status === 'cancelled' ? '运行已停止，阶段记录已保留。' : `运行在 ${run.failed_stage || run.stage} 阶段中断`}</span><button disabled={resuming} onClick={resume}>{run.status === 'cancelled' ? '从已保存阶段继续 ↗' : '从失败阶段继续 ↗'}</button></div>}
     </div>
-    {compose && <Modal label="新建事件研究" onClose={() => setCompose(false)}><ResearchComposer searchReady={!!health?.search_configured} onClose={() => setCompose(false)} onCreated={created} /></Modal>}
+    {compose && <Modal label="新建事件研究" onClose={() => setCompose(false)}><ResearchComposer parent={composeParent} unavailableReason={!health?.model_configured?'模型尚未配置，请配置后开始推演。':health.model_ready===false?'模型暂不可用，请等待服务恢复后开始推演。':health.search_ready===false?'搜索服务暂不可用，请稍后重试。':undefined} searchReady={!!health?.model_configured && !!health?.search_configured && health.search_ready !== false && health.model_ready !== false} onClose={() => setCompose(false)} onCreated={created} /></Modal>}
     {source && run && <Modal label="来源原文" onClose={() => setSource(null)}><SourceReader run={run} evidence={source} citation={citation} onClose={() => setSource(null)} /></Modal>}
-    {historyOpen && <Modal label="研究记录" onClose={() => setHistoryOpen(false)}><section className="history-dialog"><header><div><small>RESEARCH HISTORY</small><h2>每一次判断，都有一条路径</h2></div><button aria-label="关闭研究记录" onClick={() => setHistoryOpen(false)}>×</button></header><div className="dialog-body"><label className="input-field"><span>筛选研究记录</span><input placeholder="搜索事件或研究问题" value={filter} onChange={e => setFilter(e.target.value)} /></label>{history.filter(r => r.question.question.includes(filter)).map(r => <button className="history-row" key={r.run_id} onClick={() => chooseRun(r)}><strong>{r.question.question}</strong><div><span>{reportFailed(r) ? '报告待修复' : statusNames[r.status] || r.status}</span><small>{new Date(r.started_at).toLocaleString('zh-CN')} · {r.model} · {r.demo ? '固定教学' : r.evidence_mode === 'online' ? '联网取证' : '历史测试'}</small></div></button>)}{!history.length && <p className="subtle">尚无研究记录。新建一个事件，开始第一条路径。</p>}</div></section></Modal>}
+    {historyOpen && <Modal label="研究记录" onClose={() => setHistoryOpen(false)}><section className="history-dialog"><header><div><small>RESEARCH HISTORY</small><h2>每一次判断，都有一条路径</h2></div><button aria-label="关闭研究记录" onClick={() => setHistoryOpen(false)}>×</button></header><div className="dialog-body"><label className="input-field"><span>筛选研究记录</span><input placeholder="搜索事件或研究问题" value={filter} onChange={e => setFilter(e.target.value)} /></label>{history.filter(r => r.question.question.includes(filter)).map(r => <button className="history-row" key={r.run_id} onClick={() => chooseRun(r)}><strong>{r.question.question}</strong><div><span>{summaryStatus(r)}</span><small>{new Date(r.started_at).toLocaleString('zh-CN')} · {r.model} · {(r.demo || r.is_demo) ? '固定教学' : r.evidence_mode === 'online' ? '联网取证' : r.evidence_mode ? '历史测试' : '研究记录'}</small></div></button>)}{!history.length && <p className="subtle">尚无研究记录。新建一个事件，开始第一条路径。</p>}<div className="history-footer"><small>筛选当前已加载的 {history.length} 条研究。{historyMore ? '可继续加载更早记录。' : '已显示全部记录。'}</small>{historyMore && <button disabled={historyLoading} onClick={loadMoreHistory}>{historyLoading ? '正在加载…' : '加载更早记录'}</button>}</div></div></section></Modal>}
   </div>
 }

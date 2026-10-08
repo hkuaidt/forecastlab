@@ -1,3 +1,4 @@
+from scenario_fixtures import scenario_output
 """Real-run regressions: menus, unsupported overview claims and client testimonials."""
 from copy import deepcopy
 
@@ -106,7 +107,7 @@ def test_legacy_direct_downstream_receives_only_safe_summary(tmp_path, mock_mode
     # Also reproduce a previously saved unsafe summary, not just new records.
     assessment.summary = raw["summary"]
     record = RunRecord(run_id="summary_scope", question=question, evidence_mode="import", model="fixture", evidence=retrieval.evidence, evidence_assessment=assessment)
-    model = mock_model([{"summary":"条件世界", "actors":[]}, {"status":"passed"}, {"status":"completed","conclusion":"待验证。","probabilities":{"推进":0.5,"受限":0.5}}])
+    model = mock_model([{"summary":"条件世界", "actors":[]}, {"status":"passed"}, scenario_output({"status":"completed","conclusion":"待验证。","probabilities":{"推进":0.5,"受限":0.5}})])
     state = {"question":question.model_dump(mode="json"),"evidence":[e.model_dump(mode="json") for e in retrieval.evidence],"evidence_assessment":assessment.model_dump(mode="json")}
     graph.build_graph(record, retrieval.evidence, model, tmp_path, start_at="model_world").invoke(state)
     for role, payload, kwargs in model.calls:

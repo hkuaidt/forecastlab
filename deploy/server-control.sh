@@ -54,7 +54,7 @@ try:
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(f"http://127.0.0.1:{port}/api/health", timeout=1) as response:
         body = json.load(response)
-    if body.get("ok") is not True:
+    if body.get("ok") is not True or (body.get("model_configured") and body.get("ready") is not True):
         sys.exit(1)
     print(json.dumps(body, ensure_ascii=False))
 except (OSError, ValueError, KeyError):
@@ -121,7 +121,11 @@ PY
     ;;
   stop)
     if owned_running "$pid"; then
-      kill "$pid"
+      # Give model sockets and the durable call ledger a short cooperative drain
+      # before uvicorn waits for background tasks. Failure still permits stop.
+      timeout --signal=TERM 5 "$python" "$root/deploy/cancel_active_runs.py" "$pid" "$port" || true
+      # Recheck PID identity after HTTP drain; never signal a reused/foreign PID.
+      if owned_running "$pid"; then kill "$pid"; fi
       for _ in {1..20}; do owned_running "$pid" || break; sleep .5; done
       if owned_running "$pid"; then
         kill -KILL "$pid"

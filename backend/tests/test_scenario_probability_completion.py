@@ -1,3 +1,4 @@
+from scenario_fixtures import scenario_details
 """Evidence-backed scenarios prioritize valid subjective probability output."""
 import pytest
 from pydantic import ValidationError
@@ -19,7 +20,7 @@ def test_required_scenario_schema_cannot_omit_or_null_probabilities():
     for body in ({"conclusion":"结果"}, {"conclusion":"结果", "probabilities":None}):
         with pytest.raises(ValidationError):
             ScenarioForecast.model_validate(body)
-    report = ScenarioForecast(conclusion="结果", probabilities={"基准":.5,"加速":.3,"受限":.2})
+    report = ScenarioForecast(conclusion="结果", probabilities={"基准":.5,"加速":.3,"受限":.2}, scenario_details=scenario_details({"基准":.5,"加速":.3,"受限":.2}))
     assert report.status == "completed" and not report.calibrated
 
 

@@ -31,6 +31,11 @@ class RunStore:
         with self.connect() as con:
             con.execute("CREATE TABLE IF NOT EXISTS runs (run_id TEXT PRIMARY KEY, status TEXT NOT NULL, started_at TEXT NOT NULL, data TEXT NOT NULL)")
             con.execute("CREATE INDEX IF NOT EXISTS runs_started ON runs(started_at DESC)")
+            if "summary" not in {row[1] for row in con.execute("PRAGMA table_info(runs)")}:
+                con.execute("ALTER TABLE runs ADD COLUMN summary TEXT")
+            for row in con.execute("SELECT run_id,data FROM runs WHERE summary IS NULL").fetchall():
+                record = RunRecord.model_validate_json(row["data"])
+                con.execute("UPDATE runs SET summary=? WHERE run_id=?", (json.dumps(self.summary(record), ensure_ascii=False), row["run_id"]))
             con.executescript("""
                 CREATE TABLE IF NOT EXISTS question_drafts (draft_id TEXT PRIMARY KEY, latest_revision INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS question_revisions (draft_id TEXT, revision INTEGER, data TEXT NOT NULL,
@@ -57,6 +62,7 @@ class RunStore:
 
     def save(self, record: RunRecord, snapshot: bool = True):
         data = record.model_dump_json()
+        summary = json.dumps(self.summary(record), ensure_ascii=False)
         with self.lock, self.connect() as con:
             con.execute("BEGIN IMMEDIATE")
             exists = con.execute("SELECT 1 FROM runs WHERE run_id=?", (record.run_id,)).fetchone()
@@ -65,7 +71,7 @@ class RunStore:
                                   "ON c.draft_id=d.draft_id WHERE c.confirmation_id=?", (record.confirmation_id,)).fetchone()
                 if not row or row["revision"] != row["latest_revision"]:
                     raise VersionConflict("确认已失效，创建运行前请重新确认")
-            con.execute("INSERT INTO runs(run_id,status,started_at,data) VALUES(?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET status=excluded.status,data=excluded.data", (record.run_id, record.status, record.started_at.isoformat(), data))
+            con.execute("INSERT INTO runs(run_id,status,started_at,data,summary) VALUES(?,?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET status=excluded.status,data=excluded.data,summary=excluded.summary", (record.run_id, record.status, record.started_at.isoformat(), data, summary))
         if snapshot:
             folder = self.snapshots / record.run_id
             folder.mkdir(exist_ok=True)
@@ -79,9 +85,25 @@ class RunStore:
             row = con.execute("SELECT data FROM runs WHERE run_id=?", (run_id,)).fetchone()
         return RunRecord.model_validate_json(row["data"]) if row else None
 
-    def list(self, limit: int = 50) -> list[RunRecord]:
+    @staticmethod
+    def summary(record: RunRecord) -> dict:
+        from .presentation import report_failed
+        return {"run_id": record.run_id, "question": record.question.model_dump(mode="json"),
+                "status": record.status, "stage": record.stage, "started_at": record.started_at.isoformat(),
+                "finished_at": record.finished_at.isoformat() if record.finished_at else None,
+                "parent_run_id": record.parent_run_id, "model": record.model,
+                "demo": record.demo, "is_demo": record.demo, "evidence_mode": record.evidence_mode,
+                "last_error": record.errors[-1] if record.errors else None,
+                "report_failed": report_failed(record)}
+
+    def summaries(self, limit: int = 50, offset: int = 0) -> list[dict]:
         with self.lock, self.connect() as con:
-            rows = con.execute("SELECT data FROM runs ORDER BY started_at DESC LIMIT ?", (limit,)).fetchall()
+            rows = con.execute("SELECT summary FROM runs ORDER BY started_at DESC,run_id DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall()
+        return [json.loads(row["summary"]) for row in rows]
+
+    def list(self, limit: int = 50, offset: int = 0) -> list[RunRecord]:
+        with self.lock, self.connect() as con:
+            rows = con.execute("SELECT data FROM runs ORDER BY started_at DESC,run_id DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall()
         return [RunRecord.model_validate_json(row["data"]) for row in rows]
 
     def create_draft(self, framing: QuestionFraming) -> QuestionFraming:

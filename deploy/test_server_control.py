@@ -47,7 +47,18 @@ def main():
             wrong_port = {**env, "FORECASTLAB_PORT": str(free_port())}
             run(wrong_port, "stop", 1)
             run(env, "status")
+            # Only the temporary CPU API/data are used. An unowned queued record
+            # must be cancelled through HTTP before the controller sends TERM.
+            import sys
+            sys.path.insert(0, str(ROOT / "backend"))
+            from app.demo import DEMO_QUESTION
+            from app.schemas import RunRecord
+            from app.storage import RunStore
+            fixture_store = RunStore(scratch / "data")
+            fixture_store.save(RunRecord(run_id="shutdown_queued", question=DEMO_QUESTION,
+                                         evidence_mode="demo", demo=True, model="fixture"))
             run(env, "stop")
+            assert fixture_store.get("shutdown_queued").status == "cancelled"
             assert not pidfile.exists()
             run(env, "status", 1)
             run(env, "stop")

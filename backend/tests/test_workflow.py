@@ -280,7 +280,13 @@ def test_resume_runs_only_the_failed_stage(monkeypatch):
     with TemporaryDirectory() as directory, TestClient(create_app(Path(directory))) as client:
         store = RunStore(Path(directory))
         record = RunRecord(run_id="run_resume", question=DEMO_QUESTION, evidence_mode="import", model="fake")
-        execute(record, demo_evidence(), store)
+        from app.provenance import save_snapshot, split_passages
+        imported = demo_evidence()
+        for source in imported:
+            snapshot = save_snapshot(source.excerpt, {"fixture": True}, Path(directory))
+            source.snapshot_path, source.snapshot_hash = snapshot.snapshot_path, snapshot.snapshot_hash
+            source.passages = split_passages(snapshot)
+        execute(record, imported, store)
         failed = store.get(record.run_id)
         assert failed.status == "failed"
         assert failed.failed_stage == "forecast"

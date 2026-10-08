@@ -42,7 +42,9 @@ def routes(page, *, missing_key=False, runs=None, framing=None, passages=None):
             data = {"run_id": "run_fixture", "status": "queued"}; status = 202
         elif path == "/runs": data = deepcopy(runs or [])
         elif path.endswith("/passages"): data = passages
-        elif path == "/runs/run_fixture": data = deepcopy((runs or [RUN])[0])
+        elif path.startswith("/runs/") and path.count("/") == 2:
+            data = deepcopy(next((run for run in (runs or [RUN]) if run["run_id"] == path.rsplit("/", 1)[1]), {"detail": "unknown test run"}))
+            if "run_id" not in data: status = 404
         else: data = {"detail": "unknown test route"}; status = 404
         route.fulfill(status=status, content_type="application/json", body=json.dumps(data, ensure_ascii=False))
     page.route("**/api/**", handler)
@@ -226,22 +228,14 @@ def test_source_hash_mismatch_blocks_highlight(page, app_url):
     expect(page.locator("mark")).to_have_count(0)
 
 
-def test_research_supplement_requires_reviewed_status(page, app_url):
-    run = evidence_run()
-    routes(page, runs=[run])
-    candidate = {"model": "fixture", "generated_at": "2026-10-08", "quality_status": "candidate",
-        "parts": [{"name": "analysis", "request_id": "request_fixture", "sections": [{"title": "尚未核验的专题", "paragraphs": ["候选正文不能展示"], "source_ids": ["B001"]}]}],
-        "sources": [], "calls": []}
-    page.route("**/assets/research-run_fixture.json", lambda route: route.fulfill(content_type="application/json", body=json.dumps(candidate)))
+def test_report_does_not_request_removed_private_supplements(page, app_url):
+    routes(page, runs=[evidence_run()])
+    requests = []
+    page.on("request", lambda request: requests.append(request.url))
     page.goto(app_url)
-    with page.expect_response("**/assets/research-run_fixture.json"):
-        navigate_page(page, "研究报告")
-    expect(page.get_by_text("候选正文不能展示", exact=True)).to_have_count(0)
-    candidate["quality_status"] = "reviewed"
-    navigate_page(page, "问题与证据")
-    with page.expect_response("**/assets/research-run_fixture.json"):
-        navigate_page(page, "研究报告")
-    expect(page.get_by_text("候选正文不能展示", exact=True)).to_be_visible()
+    navigate_page(page, "研究报告")
+    expect(page.locator(".detail-page .reading-header h2")).to_have_text("研究报告")
+    assert not any("/assets/research-" in url for url in requests)
 
 
 def test_quality_profile_and_conflict_source_links_are_in_existing_evidence_flow(page, app_url):

@@ -1,0 +1,134 @@
+{
+  "raw_question": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。",
+  "proposed_spec": {
+    "question": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。",
+    "as_of": "2026-10-08T16:46:28.307554Z",
+    "resolve_by": null,
+    "resolution_rule": "",
+    "resolution_source": null,
+    "mode": "scenario",
+    "user_assumptions": []
+  },
+  "clarifications": [
+    {
+      "field": "判定条件",
+      "question": "请明确每个情景的判定条件，包括具体的指标或事件，以确保情景的可验证性。",
+      "blocking": true,
+      "id": "C001",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "field": "概率",
+      "question": "请说明每个情景的概率评估依据，包括数据来源和分析方法。",
+      "blocking": true,
+      "id": "C002",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "field": "公开证据",
+      "question": "请列出支持每个情景的公开证据，包括研究、报告或数据。",
+      "blocking": true,
+      "id": "C003",
+      "answer": null,
+      "status": "open"
+    },
+    {
+      "field": "主要不确定性",
+      "question": "请明确每个情景的主要不确定性，包括技术、社会或政策方面的因素。",
+      "blocking": true,
+      "id": "C004",
+      "answer": null,
+      "status": "open"
+    }
+  ],
+  "premises": [
+    {
+      "content": "AI工具将影响数学科研中的猜想提出、证明检验和论文评审。",
+      "origin": "user_explicit",
+      "source_input_id": "I001",
+      "original_span": "AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？",
+      "rationale": "用户明确指出AI工具对数学科研中的三个关键环节的影响。",
+      "replaces_id": null,
+      "id": "P001",
+      "user_review": "pending",
+      "treatment": "to_verify"
+    },
+    {
+      "content": "需要考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响。",
+      "origin": "user_explicit",
+      "source_input_id": "I001",
+      "original_span": "分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响",
+      "rationale": "用户明确要求分析不同利益相关方的目标、行动及相互影响。",
+      "replaces_id": null,
+      "id": "P002",
+      "user_review": "pending",
+      "treatment": "to_verify"
+    },
+    {
+      "content": "需要给出三个互斥且覆盖主要可能性的情景。",
+      "origin": "user_explicit",
+      "source_input_id": "I001",
+      "original_span": "给出三个互斥且覆盖主要可能性的情景",
+      "rationale": "用户明确要求提供三个互斥且覆盖主要可能性的情景。",
+      "replaces_id": null,
+      "id": "P003",
+      "user_review": "pending",
+      "treatment": "to_verify"
+    },
+    {
+      "content": "需要明确判定条件和概率。",
+      "origin": "user_explicit",
+      "source_input_id": "I001",
+      "original_span": "明确判定条件和概率",
+      "rationale": "用户明确要求明确每个情景的判定条件和概率。",
+      "replaces_id": null,
+      "id": "P004",
+      "user_review": "pending",
+      "treatment": "to_verify"
+    },
+    {
+      "content": "需要列出公开证据与主要不确定性。",
+      "origin": "user_explicit",
+      "source_input_id": "I001",
+      "original_span": "列出公开证据与主要不确定性",
+      "rationale": "用户明确要求列出公开证据与主要不确定性。",
+      "replaces_id": null,
+      "id": "P005",
+      "user_review": "pending",
+      "treatment": "to_verify"
+    }
+  ],
+  "alternative_directions": [
+    "考虑不同AI工具的技术成熟度对情景的影响。",
+    "分析不同利益相关方的资源和能力对情景的实现可能性。",
+    "探讨政策和伦理因素对情景的影响。"
+  ],
+  "retrieval_plan": [
+    {
+      "id": "R001",
+      "query": "AI工具对数学科研中猜想提出、证明检验和论文评审的影响",
+      "purpose": "initial",
+      "target_premise_ids": [
+        "P001"
+      ]
+    },
+    {
+      "id": "R002",
+      "query": "科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响",
+      "purpose": "initial",
+      "target_premise_ids": [
+        "P002"
+      ]
+    },
+    {
+      "id": "R003",
+      "query": "三个互斥且覆盖主要可能性的情景、判定条件和概率",
+      "purpose": "initial",
+      "target_premise_ids": [
+        "P003"
+      ]
+    }
+  ]
+}

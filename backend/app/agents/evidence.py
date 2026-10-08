@@ -4,14 +4,17 @@ import re
 from ..schemas import (AssessmentCandidate, EvidenceAssessment, EvidenceFinding, RejectedFinding,
                        ConflictDetail, GapDetail, EvidencePassage)
 from ..provenance import load_snapshot, save_snapshot, split_passages, select_passages, resolve_citation
-from ..llm import BudgetExceeded
+from ..llm import BudgetExceeded, ModelCancelled
 from ..evidence_quality import build_quality_profile
 from ..cutoff_gaps import is_future_outcome_gap
 
 PROMPT = """只依据提供的原文段落整理证据，不能用模型记忆补来源或结论。
+clarification_answers是用户确认的研究范围/任务说明，仅用于理解问题，不是E外部证据或需要再次核查的P事实；不得用它证明来源事实。
 每个finding必须有来源E编号、快照hash、段落编号和逐字原文quote。若存在活动前提P，可在target_premise_ids中指向相关P；
 若没有活动前提，target_premise_ids必须为空，finding直接服务于研究问题，不得虚构P编号。
 finding.claim 必须是所引 quote 可以直接蕴含的保守释义，只写 quote 本身明确表达的事实。
+AI/LLM可作为通用模型类别词，不要求原句出现同一英文缩写；具体模型、机构和任务范围仍须与原句一致，不能把Claude单项结果泛化为所有AI。
+finding.claim用完整句说明主体、任务和观测结果，limitation用1–2句解释适用范围、未验证部分及其对研究问题的影响。
 quote 没写出的发布日期、年份、机构/产品/项目名称、publisher/source title、文档或提交来源、问题中的用途、因果、趋势、评价、缺失事实或“因此/说明/构成/表明”的解释，
 不得塞进 claim；需要说明局限时写进 limitation，不能把未核验事实移入 summary。即使这些信息出现在证据 metadata/title/publisher 里，只要 exact quote 没写，就不能补进 claim。
 例如 quote 只有“The agency ... April 1”时 claim 可写“目标发射时间不早于4月1日”，不可补“NASA”；quote 只有“... on Jan. 16”时不可补年份；
@@ -51,6 +54,7 @@ _MONTH_NUMBERS = {
 _ASCII_CLAIM_MARKER = re.compile(
     r"(?<![A-Za-z0-9_])([A-Z][A-Za-z0-9]*(?:[./-][A-Za-z0-9]+)*)(?![A-Za-z0-9_])"
 )
+_GENERIC_MODEL_CATEGORIES = {"ai", "llm", "llms"}
 _CJK_TEXT = re.compile(r"[\u3400-\u9fff]")
 _SEMANTIC_CUE_REQUIREMENTS = (
     ("收盘", ("收盘", " close ", " closed ", " closing ")),
@@ -90,11 +94,12 @@ def _claim_boundary_violations(finding, citations, sources) -> list[str]:
         source = sources[citation.evidence_id]
         metadata_markers |= _ascii_claim_markers(" ".join(filter(None, [source.publisher, source.title])))
         publisher = (source.publisher or "").strip()
-        if publisher and publisher in finding.claim and publisher not in quote_text:
+        if (publisher and publisher.casefold() not in _GENERIC_MODEL_CATEGORIES
+                and publisher in finding.claim and publisher not in quote_text):
             missing_publishers.append(publisher)
     metadata_missing_markers = (claim_markers & metadata_markers) - quote_markers
     inline_missing_markers = (claim_markers - quote_markers) if _CJK_TEXT.search(finding.claim) else set()
-    missing_markers = sorted(metadata_missing_markers | inline_missing_markers)
+    missing_markers = sorted((metadata_missing_markers | inline_missing_markers) - _GENERIC_MODEL_CATEGORIES)
 
     padded_quote = f" {quote_text.casefold()} "
     semantic_cues = []
@@ -128,6 +133,9 @@ def active_framing(framing):
     if framing is None:
         return None
     data = framing.model_dump(mode="json", exclude={"raw_question", "inputs", "analysis_record", "clarifications"})
+    data["clarification_answers"] = [
+        {"field": c.field, "question": c.question, "answer": c.answer}
+        for c in framing.clarifications if c.status == "resolved" and c.answer is not None]
     active = {p.id for p in framing.premises if p.user_review != "rejected"}
     data["premises"] = [p for p in data["premises"] if p["id"] in active]
     data["retrieval_plan"] = [t for t in data["retrieval_plan"] if not t["target_premise_ids"] or any(p in active for p in t["target_premise_ids"])]
@@ -274,6 +282,8 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
             if not rejected:
                 break
             payload["validation_feedback"] = [r.reason for r in rejected]
+        except ModelCancelled:
+            raise
         except BudgetExceeded as exc:
             if candidate is None:
                 assessment.summary = "证据分析额度不足，已保存来源与检索日志。"

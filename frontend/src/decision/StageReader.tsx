@@ -1,0 +1,53 @@
+import type { ReactNode } from 'react'
+import type { Action, Actor, Evidence, FindingCitation, Run, Step } from '../types'
+import type { MapNode } from './ExecutionMap'
+import { EvidenceFindingsPanel, SourceLimitations } from '../components/EvidenceFindingsPanel'
+import { RecordReferences } from './RecordReferences'
+
+const retrievalPurposes: Record<string, string> = {initial: '初始取证', challenge: '反证核查', alternative: '其他可能路径', background: '背景核查'}
+
+function Section({title, children}: {title: string; children: ReactNode}) { return <section className="stage-reading-section"><h3>{title}</h3>{children}</section> }
+function Items({items}: {items: string[]}) { return items.length ? <ul className="detail-list">{items.map((item, i) => <li key={i}>{item}</li>)}</ul> : <p className="subtle">此项尚无保存记录。</p> }
+function Values({items}: {items: Record<string, string>}) { return <dl className="state-values">{Object.entries(items).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl> }
+
+export function StageReader({run, node, onSource, onCitation}: {run: Run; node: MapNode; onSource: (e: Evidence) => void; onCitation: (c: FindingCitation) => void}) {
+  const framing = run.question_framing
+  const answered = framing?.clarifications.filter(item => item.status === 'resolved' && item.answer) || []
+  const extraAnswers = framing?.inputs.filter(item => item.kind === 'answer' && !answered.some(answer => answer.answer?.trim() === item.text.trim())) || []
+  const refs = (evidenceIds: string[] = [], assumptionIds: string[] = [], simulationIds: string[] = []) => <RecordReferences run={run} evidenceIds={evidenceIds} assumptionIds={assumptionIds} simulationIds={simulationIds} onSource={onSource}/>
+  const actions = (rows: Action[]) => rows.length ? rows.map(a => <article className="stage-action" key={a.id}>
+    <small>{a.id} · 第 {a.round} 轮 · {run.world?.actors.find(actor => actor.id === a.actor_id)?.name || a.actor_id}</small>
+    <h4>{a.action}</h4><h5>行动理由</h5><p>{a.rationale_summary}</p><h5>行动适用条件</h5><Items items={a.conditions || []}/><h5>预期影响</h5><p>{a.expected_impact}</p>{refs(a.evidence_ids, a.assumption_ids)}
+  </article>) : <p className="subtle">此阶段尚无保存行动。</p>
+  const actor = (a: Actor) => <article className="stage-actor" key={a.id}><small>{a.id} · 模型构造的代表性主体</small><h3>{a.name}</h3><h4>目标</h4><p>{a.goal}</p><div className="stage-pair"><section><h4>资源</h4><Items items={a.resources}/></section><section><h4>约束</h4><Items items={a.constraints}/></section></div>{refs(a.visible_evidence_ids)}<h4>已保存的行动与理由</h4>{actions(run.actions.filter(item => item.actor_id === a.id))}</article>
+  const step = (s: Step) => <article className="stage-step" key={s.id}><small>{s.id} · 第 {s.round} 轮 · 状态 {s.parent_state} → {s.next_state}</small><h3>本轮演化结果</h3><p className="stage-lead">{s.summary}</p><h4>状态如何改变</h4><Values items={s.state_changes}/><div className="stage-pair"><section><h4>冲突</h4><Items items={s.conflicts}/></section><section><h4>未决问题</h4><Items items={s.unresolved}/></section></div>{refs(s.evidence_ids, s.assumption_ids)}<h4>本轮主体行动</h4>{actions(run.actions.filter(a => a.round === s.round))}</article>
+  const source = (e: Evidence) => <article className="stage-source" key={e.id}><small>{e.id} · {e.publisher || '发布方未知'}</small><h3>{e.title}</h3><SourceLimitations evidence={e}/>{e.claim && <p>{e.claim}</p>}<blockquote>{e.excerpt}</blockquote><button className="text-link" onClick={() => onSource(e)}>打开保存的来源原文 ↗</button></article>
+  const premise = run.question_framing?.premises.find(p => node.id === `premise:${p.id}`)
+  const selectedActor = run.world?.actors.find(a => node.id === `actor:${a.id}`)
+  const selectedSource = run.evidence.find(e => node.id === `source:${e.id}`)
+  const selectedAction = run.actions.find(a => node.id === `action:${a.id}`)
+  const selectedStep = run.simulation.find(s => node.id === `round:${s.round}`)
+  const selectedIssue = node.id.startsWith('issue:') ? run.review?.issues[Number(node.id.split(':')[1])] : null
+  const issue = (item: NonNullable<Run['review']>['issues'][number], i: number) => <article className="stage-issue" key={i}><small>{item.severity} · 待核查问题</small><h4>{item.claim}</h4><p>{item.explanation}</p>{refs(item.affected_ids.filter(id => id.startsWith('E')), item.affected_ids.filter(id => id.startsWith('H')), item.affected_ids.filter(id => id.startsWith('S')))}<small>关联记录：{item.affected_ids.join(' · ') || '无'}</small></article>
+  if (premise) return <div className="stage-reader"><Section title="用户前提与处理方式"><p className="stage-lead">{premise.content}</p><blockquote>{premise.original_span}</blockquote><h4>为什么识别为前提</h4><p>{premise.rationale}</p><p className="notice">{premise.treatment === 'scenario_condition' ? '用户指定的情景条件' : '保留并核查，尚不当作事实'} · {premise.user_review === 'rejected' ? '已否认' : '已保留'}</p></Section></div>
+  if (selectedSource) return <div className="stage-reader">{source(selectedSource)}</div>
+  if (selectedActor) return <div className="stage-reader">{actor(selectedActor)}</div>
+  if (selectedAction) return <div className="stage-reader">{actions([selectedAction])}</div>
+  if (selectedStep) return <div className="stage-reader">{step(selectedStep)}</div>
+  if (selectedIssue) return <div className="stage-reader"><p className="notice">模型提出的待核查问题，不代表已证实的来源结论。</p>{issue(selectedIssue, 0)}</div>
+  return <div className="stage-reader">
+    {node.phase === 'question' && <>
+      <Section title="问题与范围"><p className="stage-lead">{run.question_analysis?.normalized_question || run.question.question}</p><dl className="state-values"><div><dt>信息截至</dt><dd>{new Date(run.question.as_of).toLocaleString('zh-CN')}</dd></div>{run.question.resolve_by && <div><dt>推演至</dt><dd>{new Date(run.question.resolve_by).toLocaleString('zh-CN')}</dd></div>}</dl>{framing && <><h4>用户原话</h4><p>{framing.raw_question}</p></>}</Section>
+      {!!answered.length && <Section title="已确认的澄清">{answered.map(item => <article className="stage-issue" key={item.id}><small>{item.id} · 用户补充</small><h4>{item.question}</h4><blockquote>{item.answer}</blockquote></article>)}</Section>}
+      {!!extraAnswers.length && <Section title="其他补充输入">{extraAnswers.map(item => <article className="stage-issue" key={item.input_id}><small>{item.input_id} · 用户补充</small><blockquote>{item.text}</blockquote></article>)}</Section>}
+      <Section title="前提与理解理由">{framing?.premises.length ? framing.premises.map(p => <article className="stage-issue" key={p.id}><h4>{p.id} · {p.content}</h4><p>{p.rationale}</p><blockquote>{p.original_span}</blockquote><small>{p.user_review === 'rejected' ? '已否认，不采用' : p.treatment === 'scenario_condition' ? '用户情景条件' : '待核查前提'}</small></article>) : run.question.user_assumptions.length ? <Items items={run.question.user_assumptions}/> : <p className="subtle">未引入额外事实前提。</p>}</Section>
+      {!!framing?.alternative_directions.length && <Section title="分析方向"><Items items={framing.alternative_directions}/></Section>}
+      {(!!framing?.retrieval_plan.length || !!run.question_analysis?.search_queries.length) && <Section title="核查方向">{framing?.retrieval_plan.length ? framing.retrieval_plan.map(task => <article className="stage-issue" key={task.id}><h4>{task.query}</h4><p><strong>检索目的</strong> · {retrievalPurposes[task.purpose] || task.purpose}</p>{!!task.target_premise_ids.length && <small>关联前提：{task.target_premise_ids.join(' · ')}</small>}</article>) : <Items items={run.question_analysis?.search_queries || []}/>}</Section>}
+      {!!run.question_analysis?.caveats.length && <Section title="范围说明"><Items items={run.question_analysis.caveats}/></Section>}
+    </>}
+    {node.phase === 'evidence' && <><Section title="取证结论"><p className="stage-lead">{run.evidence_assessment?.summary || '等待证据核查结果。'}</p></Section><EvidenceFindingsPanel framing={run.question_framing} assessment={run.evidence_assessment} evidence={run.evidence} onInspectCitation={onCitation}/><Section title="来源与保存内容">{run.evidence.map(source)}</Section><Section title="冲突与缺口"><Items items={[...(run.evidence_assessment?.conflicts || []), ...(run.evidence_assessment?.gaps || [])]}/></Section></>}
+    {node.phase === 'world' && <><Section title="初始世界状态"><p className="stage-lead">{run.world?.summary || '等待世界建模结果。'}</p><Values items={run.world?.variables || {}}/><Items items={run.world?.relations || []}/>{refs(run.world?.evidence_refs)}</Section><Section title="参与方、目标与约束"><p className="notice">以下主体是模型识别或构造的代表性角色，不证明对应机构实际存在。</p>{run.world?.actors.map(actor)}</Section><Section title="模型假设">{run.world?.assumptions.map(a => <article className="stage-issue" key={a.id}><h4>{a.id} · {a.content}</h4><p>{a.rationale}</p><small>由 {a.created_by} 提出 · 关联 {a.parent_ids.join(' · ') || '无'}</small></article>)}</Section></>}
+    {node.phase === 'simulation' && <><Section title="推演路径与分支"><p className="stage-lead">{run.world?.simulation_branch_reason || '以下按保存的轮次展示主体行动及状态演化。'}</p><p className="notice">推演行动是条件模拟，不代表已经发生的事件。</p></Section>{run.simulation.length ? run.simulation.map(step) : <Section title="主体行动">{actions(run.actions)}</Section>}</>}
+    {node.phase === 'review' && <><Section title="审查结果"><p className="stage-lead">{run.review ? `已记录 ${run.review.issues.length} 项待核查问题，${run.review.missing_evidence.length} 项证据缺口。` : '等待审查结果。'}</p><p className="notice">以下是模型提出的待核查问题，不代表已证实的来源结论。</p>{run.review?.issues.map(issue)}</Section><Section title="尚无支持的断言"><Items items={run.review?.unsupported_claims || []}/></Section><Section title="缺口与审查理由"><Items items={run.review?.missing_evidence || []}/><Items items={run.review?.evidence_audit_blocking_reasons || []}/></Section></>}
+  </div>
+}

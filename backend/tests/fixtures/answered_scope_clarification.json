@@ -1,0 +1,144 @@
+{
+  "revision1": {
+    "draft_id": "draft_17b6235e71024302a438f6e2dba67469",
+    "revision": 1,
+    "raw_question": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。",
+    "proposed_spec": {
+      "question": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。",
+      "as_of": "2026-10-08T16:59:16.511238Z",
+      "resolve_by": null,
+      "resolution_rule": "",
+      "resolution_source": null,
+      "mode": "scenario",
+      "user_assumptions": []
+    },
+    "inputs": [
+      {
+        "input_id": "I001",
+        "kind": "original",
+        "text": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。"
+      }
+    ],
+    "clarifications": [
+      {
+        "field": "研究对象",
+        "question": "AI工具在数学科研中的具体应用领域和功能是否明确？",
+        "blocking": true,
+        "id": "C001",
+        "answer": null,
+        "status": "open"
+      }
+    ],
+    "premises": [],
+    "alternative_directions": [
+      "考虑AI工具在数学科研中的具体应用场景和功能。",
+      "分析不同主体在AI工具应用中的潜在利益和冲突。",
+      "评估AI工具对数学科研效率和质量的潜在影响。",
+      "探讨AI工具在数学科研中的伦理和法律问题。",
+      "研究AI工具在数学科研中的技术局限性和挑战。",
+      "分析AI工具在数学科研中的未来发展趋势和潜在突破。"
+    ],
+    "retrieval_plan": [
+      {
+        "id": "R001",
+        "query": "AI工具在数学科研中的应用现状和影响",
+        "purpose": "initial",
+        "target_premise_ids": []
+      },
+      {
+        "id": "R002",
+        "query": "科研团队、模型厂商、形式化验证社区、期刊与资助机构在AI工具应用中的目标和行动",
+        "purpose": "initial",
+        "target_premise_ids": []
+      },
+      {
+        "id": "R003",
+        "query": "AI工具在数学科研中的主要不确定性",
+        "purpose": "initial",
+        "target_premise_ids": []
+      }
+    ],
+    "status": "needs_clarification",
+    "next_premise_number": 1
+  },
+  "returned_revision2": {
+    "draft_id": "draft_17b6235e71024302a438f6e2dba67469",
+    "revision": 2,
+    "raw_question": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。",
+    "proposed_spec": {
+      "question": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。",
+      "as_of": "2026-10-08T16:59:16.511238Z",
+      "resolve_by": null,
+      "resolution_rule": "",
+      "resolution_source": null,
+      "mode": "scenario",
+      "user_assumptions": []
+    },
+    "inputs": [
+      {
+        "input_id": "I001",
+        "kind": "original",
+        "text": "推演至2027年12月31日：AI工具将怎样影响数学科研中的猜想提出、证明检验和论文评审？分别考虑科研团队、模型厂商、形式化验证社区、期刊与资助机构的目标、行动及相互影响，给出三个互斥且覆盖主要可能性的情景、明确判定条件和概率，并列出公开证据与主要不确定性。"
+      },
+      {
+        "input_id": "I002",
+        "kind": "answer",
+        "text": "范围限定为三类应用：大语言模型辅助提出猜想，Lean 等形式化工具结合 AI 检查证明，以及 AI 辅助发现论文论证漏洞和评审分流。请对全球数学科研生态作整体情景推演，不限定单一产品或机构。"
+      }
+    ],
+    "clarifications": [
+      {
+        "field": "研究对象",
+        "question": "AI工具在数学科研中的具体应用领域和功能是否明确？",
+        "blocking": true,
+        "id": "C001",
+        "answer": null,
+        "status": "open"
+      }
+    ],
+    "premises": [
+      {
+        "content": "AI工具在数学科研中的具体应用领域和功能包括：大语言模型辅助提出猜想，Lean等形式化工具结合AI检查证明，以及AI辅助发现论文论证漏洞和评审分流。",
+        "origin": "user_explicit",
+        "source_input_id": "I002",
+        "original_span": "范围限定为三类应用：大语言模型辅助提出猜想，Lean 等形式化工具结合 AI 检查证明，以及 AI 辅助发现论文论证漏洞和评审分流。",
+        "rationale": "用户明确指出了AI工具在数学科研中的具体应用领域和功能，包括大语言模型辅助提出猜想、形式化工具结合AI检查证明以及AI辅助发现论文论证漏洞和评审分流。",
+        "replaces_id": null,
+        "id": "P001",
+        "user_review": "pending",
+        "treatment": "to_verify"
+      }
+    ],
+    "alternative_directions": [
+      "考虑AI工具在数学科研中的具体应用场景和功能。",
+      "分析不同主体在AI工具应用中的潜在利益和冲突。",
+      "评估AI工具对数学科研效率和质量的潜在影响。",
+      "探讨AI工具在数学科研中的伦理和法律问题。",
+      "研究AI工具在数学科研中的技术局限性和挑战。",
+      "分析AI工具在数学科研中的未来发展趋势和潜在突破。"
+    ],
+    "retrieval_plan": [
+      {
+        "id": "R001",
+        "query": "AI工具在数学科研中的应用现状和影响",
+        "purpose": "initial",
+        "target_premise_ids": []
+      },
+      {
+        "id": "R002",
+        "query": "科研团队、模型厂商、形式化验证社区、期刊与资助机构在AI工具应用中的目标和行动",
+        "purpose": "initial",
+        "target_premise_ids": []
+      },
+      {
+        "id": "R003",
+        "query": "AI工具在数学科研中的主要不确定性",
+        "purpose": "initial",
+        "target_premise_ids": []
+      }
+    ],
+    "status": "needs_clarification",
+    "next_premise_number": 2
+  },
+  "answer": "范围限定为三类应用：大语言模型辅助提出猜想，Lean 等形式化工具结合 AI 检查证明，以及 AI 辅助发现论文论证漏洞和评审分流。请对全球数学科研生态作整体情景推演，不限定单一产品或机构。"
+}

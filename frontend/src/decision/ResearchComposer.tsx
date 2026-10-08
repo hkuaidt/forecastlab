@@ -1,25 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuestionFraming, type QuestionFields } from '../components/useQuestionFraming'
-import type { PremiseDecision } from '../types'
+import type { PremiseDecision, Run } from '../types'
 import { api } from '../api'
 const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)
-export function ResearchComposer({searchReady,onClose,onCreated}:{searchReady:boolean;onClose:()=>void;onCreated:(id:string)=>void}){
- const [fields,setFields]=useState<QuestionFields>({question:'',asOf:'',resolveBy:'',resolutionRule:'',resolutionSource:'',mode:'scenario',assumptions:''})
+export function ResearchComposer({searchReady,onClose,onCreated,parent,unavailableReason}:{searchReady:boolean;onClose:()=>void;onCreated:(id:string)=>void;parent?:Run|null;unavailableReason?:string}){
+ const [fields,setFields]=useState<QuestionFields>({question:parent?.question.question||'',asOf:'',resolveBy:'',resolutionRule:'',resolutionSource:'',mode:'scenario',assumptions:''})
+ const mounted=useRef(true)
+ useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
  const [error,setError]=useState(''),[starting,setStarting]=useState(false),[choices,setChoices]=useState<Record<string,string>>({}),[answers,setAnswers]=useState<Record<string,string>>({})
  const [specificTime,setSpecificTime]=useState(false)
  const frame=useQuestionFraming(fields,setFields,setError,{scenarioOnly:true,useCurrentTime:!specificTime})
  useEffect(()=>{setChoices(Object.fromEntries((frame.framing?.premises||[]).map(p=>[p.id,p.user_review==='pending'?'':p.user_review==='rejected'?'rejected':p.treatment])));setAnswers({})},[frame.framing?.revision,frame.framing?.draft_id])
  const change=(key:keyof QuestionFields,value:string)=>setFields(f=>({...f,[key]:value}))
- async function start(){if(!frame.confirmationId)return;setStarting(true);setError('');try{const r=await api<{run_id:string}>('/runs',{method:'POST',body:JSON.stringify({confirmation_id:frame.confirmationId,evidence_mode:'online',evidence:[]})});onCreated(r.run_id)}catch(e){setError((e as Error).message)}finally{setStarting(false)}}
+ async function start(){if(!frame.confirmationId)return;setStarting(true);setError('');try{const r=await api<{run_id:string}>('/runs',{method:'POST',body:JSON.stringify({confirmation_id:frame.confirmationId,evidence_mode:'online',evidence:[],...(parent?{parent_run_id:parent.run_id}:{})})});if(mounted.current)onCreated(r.run_id)}catch(e){if(mounted.current)setError((e as Error).message)}finally{if(mounted.current)setStarting(false)}}
  const busy=frame.busy||starting
  const confirmable=!!frame.framing&&!frame.dirty&&frame.framing.status==='ready_for_confirmation'&&frame.framing.premises.every(p=>choices[p.id])&&!frame.confirmationId
  const decisions:PremiseDecision[]=(frame.framing?.premises||[]).map(p=>({premise_id:p.id,user_review:choices[p.id]==='rejected'?'rejected':'retained',treatment:choices[p.id]==='scenario_condition'?'scenario_condition':'to_verify'}))
  return <section className="research-dialog" aria-labelledby="research-title"><header><div><small>NEW RESEARCH</small><h2 id="research-title">定义一个值得推演的问题</h2></div><button aria-label="关闭新建预测" onClick={onClose}>×</button></header>
-  <div className="dialog-body"><label className="input-field"><span>研究问题</span><textarea rows={3} value={fields.question} onChange={e=>change('question',e.target.value)} placeholder="如果某项政策改变，未来三个月会如何影响相关主体？" maxLength={4000}/></label>
+  <div className="dialog-body">{parent&&<p className="notice">后续研究将关联原记录，重新确认问题与信息时间，并独立取证。原记录保持可追溯。</p>}<label className="input-field"><span>研究问题</span><textarea aria-label="研究问题" rows={3} value={fields.question} onChange={e=>change('question',e.target.value)} placeholder="如果某项政策改变，未来三个月会如何影响相关主体？" maxLength={4000}/></label>
   <div className="input-field"><div className="section-line"><span id="research-cutoff-label">信息截至</span><button type="button" disabled={busy} onClick={()=>{setSpecificTime(value=>!value);change('asOf',specificTime?'':today())}}>{specificTime?'使用当前时间':'指定历史时间'}</button></div>
    {specificTime?<><input aria-labelledby="research-cutoff-label" type="datetime-local" value={fields.asOf} disabled={busy} onChange={e=>change('asOf',e.target.value)}/><span className="subtle">历史研究请使用截至该时间已可取得的材料。</span></>:<span className="subtle">默认使用提交分析时的当前时间。</span>}
   </div>
-  {!searchReady&&<p className="notice warning">Brave 搜索尚未配置密钥。可以先分析并确认问题，搜索接通后再开始联网推演。</p>}
+  {!searchReady&&<p className="notice warning">{unavailableReason||'联网搜索尚未配置。可以先分析并确认问题，服务可用后再开始联网推演。'}</p>}
   {error&&<p role="alert" className="notice danger">{error}</p>}
   <button className="primary" disabled={busy||!fields.question.trim()||(specificTime&&!fields.asOf)} onClick={()=>frame.analyze()}>{frame.busy?'模型正在分析…':frame.dirty?'重新分析修改后的问题':'分析问题'}</button>
   {frame.framing&&<div className="framing-review"><div className="section-line"><h3>问题理解与确认</h3><button onClick={()=>frame.reload()} disabled={busy}>重新加载草稿</button></div><p>{frame.framing.proposed_spec.question}</p><p className="subtle">本次分析信息截至：{new Date(frame.framing.proposed_spec.as_of).toLocaleString()}</p>

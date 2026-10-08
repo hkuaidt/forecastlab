@@ -1,3 +1,4 @@
+from scenario_fixtures import scenario_output
 """Direct online requests use persisted retrieval and exact-source Agent 2 validation."""
 from copy import deepcopy
 from datetime import timedelta
@@ -51,7 +52,7 @@ class DirectOnlineModel:
                         "text": "项目的核心测试已经通过。", "evidence_ids": ["E001"]}]}
         else:
             raise AssertionError(f"Unexpected legacy online role: {role}")
-        return schema.model_validate(body)
+        return schema.model_validate(scenario_output(body))
 
 
 @pytest.fixture

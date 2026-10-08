@@ -1,3 +1,4 @@
+from scenario_fixtures import scenario_details
 """Scenario reporting must not promote model trajectories into observed evidence."""
 from copy import deepcopy
 import json
@@ -36,12 +37,14 @@ def test_private_mask_preserves_sources_dates_ids_and_original_trajectory():
     before = deepcopy(payload)
     masked = graph.scenario_forecast_context(payload)
     assert payload == before
-    for key in ("question", "evidence", "evidence_assessment", "validation_feedback"):
+    for key in ("evidence", "evidence_assessment", "validation_feedback"):
         assert masked[key] == payload[key]
     for key in ("world", "actions", "simulation", "review"):
         text = json.dumps(masked[key], ensure_ascii=False)
         assert not graph._REPORT_PERCENTAGE.search(text)
         assert graph._MASKED_MODEL_RATE in text
+    assert masked["question"]["as_of"] == payload["question"]["as_of"]
+    assert masked["question"]["outcomes"] == []
     assert "30–" not in masked["actions"][0]["action"]
     assert "2027" in masked["actions"][0]["action"]
     assert "2026-10-07" in masked["world"]["actors"][0]["resources"][0]
@@ -105,7 +108,7 @@ def test_actual_forecast_model_input_is_private_and_scoped_to_scenario(mode, tmp
             assert role == "forecast"
             self.payload = deepcopy(payload)
             self.instructions = instructions
-            return schema.model_validate({"status": "completed", "conclusion": "若复核完成，则可能推进。", "probabilities": {"是": .6, "否": .4},
+            return schema.model_validate({"status": "completed", "conclusion": "若复核完成，则可能推进。", "probabilities": {"是": .6, "否": .4}, "scenario_details": scenario_details({"是": .6, "否": .4}),
                 "supporting": [{"text": "若验证条件具备，则可能推进。", "evidence_ids": ["E001"], "assumption_ids": ["H001"]}]})
     model = CaptureModel()
     record = RunRecord(run_id="report_input_fixture", question=QuestionSpec.model_validate(state["question"]),
