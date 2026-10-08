@@ -212,3 +212,26 @@ def test_report_labels_review_issues_as_model_questions_and_preserves_text(page,
     expect(section.locator(".conclusion-entry p")).to_have_text("模型根据 F001 提出这一疑问，仍需对照来源原文核查。")
     expect(section.locator(":scope > p.subtle + article")).to_have_count(1)
     assert run == original
+
+
+@pytest.mark.parametrize("mode,probabilities", [
+    ("scenario", {"持续推进": 0.6, "阶段性放缓": 0.25, "方向调整": 0.15}),
+    ("binary", {"是": 0.4, "否": 0.6}),
+])
+def test_report_displays_named_scenario_and_legacy_binary_probabilities(page, app_url, mode, probabilities):
+    run = rejected_run()
+    run.update({"status": "completed", "forecast_attempts": [], "report_repair": {"available": False}})
+    run["question"]["mode"] = mode
+    run["forecast"].update({"status": "completed", "conclusion": "依据已有材料估计各路径的相对可能性。",
+                            "probabilities": probabilities, "calibrated": False, "limitations": ["概率仅为模型主观判断。"]})
+    open_report(page, app_url, run)
+    probability_list = page.locator(".probability-list")
+    expect(probability_list).to_be_visible()
+    expect(probability_list.locator(":scope > div")).to_have_count(len(probabilities))
+    expect(probability_list.locator("small")).to_have_text("主观概率 · 未经校准")
+    for label, value in probabilities.items():
+        row = probability_list.locator(":scope > div").filter(has=page.get_by_text(label, exact=True))
+        expect(row.locator("strong")).to_have_text(f"{value * 100:.1f}%")
+        expect(row.locator("meter")).to_have_attribute("value", str(value))
+    expect(page.locator(".report-repair")).to_have_count(0)
+    expect(page.get_by_role("link", name="导出推演报告 ↗", exact=True)).to_be_visible()
