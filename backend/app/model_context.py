@@ -64,6 +64,10 @@ def evidence_input_projection(payload: dict) -> dict:
     redundant protocol data is removed; this never reconstructs citation hashes.
     """
     result = compact_model_payload(payload)
+    # Agent 2 targets P premises; the storage-only Q locator is not a premise.
+    question = result.get("question")
+    if isinstance(question, dict):
+        question.pop("id", None)
     framing = result.get("question_framing")
     if isinstance(framing, dict):
         for key in ("schema_version", "draft_id", "revision", "status", "next_premise_number", "demo_case_id"):

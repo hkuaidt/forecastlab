@@ -22,7 +22,7 @@ finding.claim是quote可以直接蕴含的保守释义，只写quote 本身明�
 limitation只写该条具体的支持范围、缺失变量或对主体选择的限制；claim已明确且无具体缺口时可留空。
 如需解释机制，这部分是AI解读而非原文事实，须用“若…则…”或“据此推测…”标明推断，不能新增未经证实的事件。
 共性缺口只在gaps写一次，不给每条复制“资料未提供具体时间或细节，因此无法确定影响程度”。gap指明缺哪项可取得的记录以及影响哪个任务，未来实际结果尚未发生不是资料缺口。
-clarification_answers是用户确认的研究范围，不是E证据或需要重查的P事实。只向活动前提填target_premise_ids；无活动前提时为空，不虚构P。
+clarification_answers是用户确认的研究范围，不是E证据或需要重查的P事实。finding和gap的target_premise_ids只从valid_target_premise_ids选；列表为空就填[]。Q是问题编号，不是前提；不虚构P。
 relation描述发现与前提的关系，不描述整个网站；查询purpose=challenge不自动使结果成为反证，无反证不凑数。
 冲突用零起始finding_indexes关联，比较时间、指标和地区；口径不同不必是真矛盾。conflicts最多3条，gaps最多4条，不输出概率。
 每finding优先一条完整直接引文，仅在共同支持同一claim时增加第二条citation；保留必要原文，不为短输出删掉主语、条件或范围。"""
@@ -272,7 +272,11 @@ def assess_evidence(question, framing, retrieval, model, data_dir, *, on_progres
         assessment.gap_details.append(GapDetail(missing="证据包中没有可读取的有效来源", cause="not_found"))
         return _compatibility(assessment, retrieval)
     passages = {e.id: e.passages for e in good_sources}
+    valid_targets = [p.id for p in framing.premises if p.user_review != "rejected"] if framing else []
+    target_feedback = (f"target_premise_ids只能来自valid_target_premise_ids={valid_targets!r}；"
+                       "列表为空必须填[]。Q是问题编号，不是前提。")
     payload = {"question": question.model_dump(mode="json"), "question_framing": active_framing(framing),
+        "valid_target_premise_ids": valid_targets,
         "evidence": [e.model_dump(mode="json", exclude={"snapshot_path", "content_hash", "excerpt"}) for e in good_sources],
         "retrieval_log": [x.model_dump() for x in retrieval.retrieval_log]}
     candidate = None
@@ -302,7 +306,7 @@ def assess_evidence(question, framing, retrieval, model, data_dir, *, on_progres
             # entire source package for unrelated rejected candidates.
             if findings or not rejected:
                 break
-            payload["validation_feedback"] = [r.reason for r in rejected]
+            payload["validation_feedback"] = [target_feedback, *[r.reason for r in rejected]]
         except ModelCancelled:
             raise
         except BudgetExceeded as exc:
@@ -320,7 +324,7 @@ def assess_evidence(question, framing, retrieval, model, data_dir, *, on_progres
             if not assessment.findings_validated:
                 assessment.summary = f"已保存{len(good_sources)}条来源；当前证据候选未通过校验，拒绝原因已记录。"
             publish_progress()
-            payload["validation_feedback"] = rejection.reason
+            payload["validation_feedback"] = target_feedback + " " + rejection.reason
     if not assessment.findings_validated:
         assessment.summary = f"已保存{len(good_sources)}条可读取来源，但证据分析输出未通过校验；不能据此认定来源没有相关内容。"
     if assessment.rejected_findings:
