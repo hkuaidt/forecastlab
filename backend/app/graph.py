@@ -1,5 +1,6 @@
 """Explicit SAO workflow. Each node owns a single stage output."""
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from math import ceil
 import re
 import time
@@ -241,6 +242,129 @@ def canonicalize_forecast_ids(forecast: Forecast, evidence: list[Evidence], worl
     forecast.key_assumptions = canonical_ids(forecast.key_assumptions, assumption_ids)
 
 
+_REPORT_PERCENTAGE = re.compile(r"\d+(?:\.\d+)?\s*[%％]|百分之[零〇一二三四五六七八九十百点两\d.]+|\d+(?:\.\d+)?\s*个?百分点")
+_EXPLICIT_HYPOTHETICAL_RATE = re.compile(
+    r"(?:仅为|纯属|仅是).{0,4}假设|假设(?:数值|参数|比例)|^假设[：:]|"
+    r"示意|非统计|未经校准|无数据(?:依据|支撑)|没有数据(?:支持|支撑)|未经实测"
+)
+
+
+_MASKED_MODEL_RATE = "[未校准的模型比例已省略；仅作定性条件推演]"
+_MODEL_DERIVED_RATE = re.compile(
+    r"\d+(?:\.\d+)?\s*[%％]?\s*(?:[-–—~～]|至|到)\s*\d+(?:\.\d+)?\s*[%％]|"
+    + _REPORT_PERCENTAGE.pattern
+)
+
+
+def scenario_forecast_context(payload: dict) -> dict:
+    """Mask derived rates in a private model input, never source/audit records."""
+    safe = deepcopy(payload)
+
+    def mask(value, key=""):
+        # Trace identities and source/time metadata must remain stable.
+        if (key == "id" or key.endswith("_id") or key.endswith("_ids")
+                or key.endswith("_at") or key in {"created_by", "date", "as_of"}):
+            return value
+        if isinstance(value, str):
+            return _MODEL_DERIVED_RATE.sub(_MASKED_MODEL_RATE, value)
+        if isinstance(value, dict):
+            return {name: mask(item, name) for name, item in value.items()}
+        if isinstance(value, list):
+            return [mask(item) for item in value]
+        return value
+
+    for key in ("world", "actions", "simulation", "review"):
+        if key in safe:
+            safe[key] = mask(safe[key])
+    safe["forecast_context_provenance"] = {
+        "source_material": "evidence及evidence_assessment中的原文和引用保持不变；原文匹配不等于独立事实认证，须保留来源及日期限制。",
+        "model_derived": "world/actions/simulation/review是模型构造的假设、模拟与审查判断，不是新增观测；其中未校准比例已遮蔽，不得补造。",
+        "report_rule": "含H/S引用的主张必须明确为条件、假设或模拟；只作定性条件推演，不把E/H/S混合引用当事实认证。",
+    }
+    return safe
+
+
+def validate_forecast_claim_kinds(forecast: Forecast) -> None:
+    invalid = []
+    conditional = re.compile(
+        r"^(?:若|如果|假如|假设|仅当|当.+?时|仅在.+?时|"
+        r"(?:模型)?(?:假设|模拟|情景|推演)(?:[：:]|中|结果|表明|显示|认为)|"
+        r"(?:根据|基于).{0,40}(?:模拟|假设|推演)|在.{0,40}(?:假设|条件|模拟|情景).{0,8}(?:下|中)|"
+        r"if\b|assuming\b|under (?:the |this )?(?:assumption|scenario)|in (?:this |the )?simulation|scenario:)", re.I)
+    for name in ("supporting", "opposing"):
+        for index, claim in enumerate(getattr(forecast, name)):
+            if not (claim.assumption_ids or claim.simulation_ids):
+                continue
+            factual_assertion = re.search(r"实际上|实际已|已经?确认|已(?:被)?证实|事实(?:上|是)|"
+                                          r"观测(?:显示|证明)|实测(?:显示|证实)", claim.text)
+            if not conditional.search(claim.text.strip()) or factual_assertion:
+                invalid.append(f"{name}[{index}]")
+    if invalid:
+        raise ValueError("引用H/S的报告主张必须明确写成条件、假设或模拟；需修改字段：" + ", ".join(invalid)
+                         + "。可用‘若…则可能…’或‘模型假设：…’；E/H/S混合引用不能认证无条件事实。")
+
+
+def _source_statistic_quote_spans(text: str, claim, evidence: list[Evidence]) -> list[tuple[int, int]]:
+    """Only attributed, verbatim source sentences can certify report percentages."""
+    if not (claim and claim.evidence_ids and not (claim.assumption_ids or claim.simulation_ids)):
+        return []
+    if not re.search(r"(?:原文|来源|作者|厂商|客户).{0,12}(?:报告|称|表示|反馈|记录)", text):
+        return []
+    # A bare matching number (or translated paraphrase) cannot establish subject,
+    # task or time scope. Require the complete rate-bearing source sentence.
+    def sentence_text(value):
+        return value.strip().rstrip("。！？!?；;.").strip()
+    source_sentences = {
+        sentence_text(sentence)
+        for source in evidence if source.id in claim.evidence_ids
+        for passage in source.passages
+        for sentence in re.split(r"(?<=[。！？!?；;])|(?<=\.)\s+", passage.text)
+        if _REPORT_PERCENTAGE.search(sentence)
+    }
+    spans = []
+    for match in re.finditer(r'“([^”]+)”|"([^"\n]+)"|「([^」]+)」', text):
+        quoted = next(group for group in match.groups() if group is not None)
+        if _REPORT_PERCENTAGE.search(quoted) and sentence_text(quoted) in source_sentences:
+            spans.append(match.span())
+    return spans
+
+
+def validate_scenario_quantification(forecast: Forecast, evidence: list[Evidence]) -> None:
+    """A simulated rate cannot become a fact by moving to another report field."""
+    fields = [("conclusion", forecast.conclusion, None)]
+    for name in ("supporting", "opposing"):
+        fields.extend((f"{name}[{index}]", claim.text, claim) for index, claim in enumerate(getattr(forecast, name)))
+    for name in ("scenarios", "new_information", "limitations", "key_assumptions"):
+        fields.extend((f"{name}[{index}]", text, None) for index, text in enumerate(getattr(forecast, name)))
+    invalid_fields = []
+    for field, text, claim in fields:
+        source_quotes = _source_statistic_quote_spans(text, claim, evidence)
+        # Disclaimers apply to the local clause only, not adjacent factual claims.
+        start = 0
+        boundaries = list(re.finditer(r"[。！？!?；;，,\n]|(?<=\.)\s+", text))
+        clauses = []
+        for boundary in boundaries:
+            clauses.append((start, text[start:boundary.start()]))
+            start = boundary.end()
+        clauses.append((start, text[start:]))
+        for offset, clause in clauses:
+            explicit_hypothesis = bool(_EXPLICIT_HYPOTHETICAL_RATE.search(clause.strip()))
+            negated_label = re.search(r"(?:并非|并不是|不是|并不|不属于|不应称为|不能称为|非(?=假设|示意)).{0,8}"
+                                      r"(?:假设|示意|非统计|未经校准|无数据|没有数据|未经实测)", clause)
+            factual_assertion = re.search(r"实际|已经?确认|实测(?:结果|显示)|已测得|已证实|已验证", clause)
+            for rate in _REPORT_PERCENTAGE.finditer(clause):
+                if explicit_hypothesis and not (negated_label or factual_assertion):
+                    continue
+                if any(left <= offset + rate.start() and offset + rate.end() <= right for left, right in source_quotes):
+                    continue
+                if field not in invalid_fields:
+                    invalid_fields.append(field)
+    if invalid_fields:
+        raise ValueError("场景报告中的定量比例缺少明确的假设/示意标注或直接来源依据；需修改字段："
+                         + ", ".join(invalid_fields) + "。模拟及H假设不证明比例，请改为定性条件，不能把它移入其他报告字段")
+
+
+
 def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list[Evidence], world: WorldState,
                       simulation: list[SimulationStep], review: Review, *, require_probability: bool = False):
     evidence_ids = {e.id for e in evidence}
@@ -262,12 +386,20 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
         forecast.probabilities = None
         if forecast.status != "partial":
             forecast.status = "scenario_only" if question.mode == "scenario" else "insufficient_evidence"
+    semantic_errors = []
+    try:
+        validate_forecast_claim_kinds(forecast)
+    except ValueError as exc:
+        semantic_errors.append(str(exc))
     if question.mode == "scenario":
-        if any(re.search(r"\d+(?:\.\d+)?\s*[%％]", item)
-               and not re.search(r"假设|示意|非统计|未经校准", item) for item in forecast.scenarios):
-            raise ValueError("情景中的定量比例须明确标为假设，不得呈现为已测量或有依据的预测")
+        try:
+            validate_scenario_quantification(forecast, evidence)
+        except ValueError as exc:
+            semantic_errors.append(str(exc))
         if any(re.match(r"^E\d+\s*(?:显示|指出|提及)", item) for item in forecast.new_information):
-            raise ValueError("后续信息应描述待收集或核验的资料，不能复述来源结论")
+            semantic_errors.append("后续信息应描述待收集或核验的资料，不能复述来源结论")
+    if semantic_errors:
+        raise ValueError("；".join(semantic_errors))
     if require_probability and forecast.probabilities is None:
         raise ValueError("事前证据复审允许主观概率，报告仍未给出概率")
     if forecast.probabilities is not None:
@@ -307,7 +439,7 @@ def repair_forecast(forecast: Forecast, question: QuestionSpec, evidence: list[E
                               or re.search(r"假设|示意|非统计|未经校准", item)]
         forecast.new_information = [item for item in forecast.new_information
                                     if not re.match(r"^E\d+\s*(?:显示|指出|提及)", item)]
-    if any(marker in reason for marker in ("情景中的定量比例", "后续信息应描述")):
+    if any(marker in reason for marker in ("定量比例", "后续信息应描述")):
         # Field-level unsupported assertion: retain only audit trail.
         forecast.supporting = []
         forecast.opposing = []
@@ -776,10 +908,21 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             probability_instructions = (f"概率键必须严格为 {question.outcomes}，数值在 0 到 1 且合计为 1；"
                                         "概率是未经校准的主观判断；证据不足或开放问题必须用 null。")
             forecast_schema = Forecast
+        instructions += (" 含H/S引用的supporting/opposing主张必须明确为条件、假设或模拟，"
+                         "使用‘若…则可能…’或‘模型假设：…’等明确表述；不能用混合E/H/S引用认证无条件事实。")
         if question.mode == "scenario":
+            forecast_payload = scenario_forecast_context(forecast_payload)
             instructions += ("Open scenario analysis: use qualitative conditional possibilities, not invented "
-                             "impact percentages or arbitrary numerical indices. Source material and simulation "
-                             "outcomes are not measurements, and new_information lists what needs verifying. ")
+                             "impact percentages or arbitrary numerical indices. Model-derived assumptions and simulation "
+                             "outcomes are not measurements; attribute source observations explicitly. "
+                             "new_information lists what needs verifying. "
+                             "所有字段（包括结论、支持/反对依据、情景、局限和后续信息）都遵守同一证据标准。"
+                             "simulation/H中的百分比不等于实测或有依据的量化预测；缺少直接量化依据时只写定性条件，"
+                             "删除来自模拟的任意百分比或阈值，不得转移到supporting或opposing。若保留来源统计比例，须明确归属并直接引用包含比例的完整原句，不能用译写或碰巧相同的数字替代核验。"
+                             "‘验证标准不透明/滞后’‘需人工验证’若没有直接原文依据，只能明确写成待检验的模型假设，"
+                             "不能归因给E来源。工具验证与专家判断是不同环节，不要混同。"
+                             "三种情景须写具体触发条件、机制和可观察反证，不要只给标题；"
+                             "发布日期未知及历史回看限制必须保留。")
         if price_context:
             forecast_payload["market_price_context"] = price_context
             price_note = ("对于市场价格问题，先比较预测期限与历史价格覆盖：一两日涨势不能直接外推到月末，"
