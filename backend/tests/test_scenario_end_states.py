@@ -89,10 +89,10 @@ def test_graph_corrects_copied_rounds_with_existing_second_attempt_and_keeps_raw
         calls = 0
         def complete(self, role, payload, schema, instructions):
             assert role == "forecast"
-            assert "同一目标日期、研究范围和单一判定轴" in instructions
-            assert "用户明确要求三个时给三个" in instructions
-            assert "不能将各自条件成功率归一化" in instructions
-            assert "只在simulation_ids登记该情景文字实际用到的S" in instructions
+            assert "同一目标日期和范围" in instructions and "固定一个可判断结果的轴" in instructions
+            assert "2–3个具名终态" in instructions
+            assert "各自条件成功率" in instructions
+            assert "只登记该条实际使用的E/H/S" in instructions
             self.calls += 1
             if self.calls == 1:
                 return schema.model_validate(bad)

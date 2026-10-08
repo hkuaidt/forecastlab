@@ -20,6 +20,7 @@ from .demo import demo_output
 from . import config
 from .cutoff_gaps import is_future_outcome_gap
 from .resume import restore_legacy_evidence_stage, verify_saved_evidence_stage
+from .forecast_wire import DefinitionFirstForecast, WIRE_INSTRUCTIONS, definition_first_task, to_public_forecast
 
 
 class FlowState(TypedDict, total=False):
@@ -1070,7 +1071,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                          "只核对上下文已选引句和经过校验的F，不声称重新阅读完整网页；报告仍按有效E/H/S归属依据。")
         if question.mode == "scenario":
             forecast_payload = scenario_forecast_context(forecast_payload)
-            record.forecast_policy = deepcopy(forecast_payload.get("forecast_policy", {}))
+            record.forecast_policy = {**record.forecast_policy, **deepcopy(forecast_payload.get("forecast_policy", {}))}
             forecast_schema = ScenarioForecast if evidence else Forecast
             probability_instructions = (
                 "这是开放场景研究：已有证据时必须给出非null的probabilities，数值在0到1之间、合计为1。"
@@ -1083,13 +1084,23 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 "rationale用2–4句连接Round 0、已模拟行动交互和该终局为何更可能或更不可能；区分来源事实、模拟路径及剩余不确定性。"
                 "同一S可以支持多个终局，只在simulation_ids登记该情景文字实际用到的S；evidence_ids/assumption_ids同样对应实际依据。"
                 "若已有outcomes满足上述定义可沿用。概率不是来源实测频率；证据有限或review=blocked写入limitations，不因此拒绝概率。")
-            if not evidence:
+            if evidence:
+                # Private output definitions precede weights in the same call.
+                # Public API records continue to contain ordinary Forecasts.
+                forecast_schema = DefinitionFirstForecast
+                forecast_payload["terminal_task"] = definition_first_task(forecast_payload["question"])
+                probability_instructions = WIRE_INSTRUCTIONS
+                manual_feedback = record.report_repair_audit.get("validation_feedback")
+                if manual_feedback:
+                    forecast_payload["validation_feedback"] = manual_feedback
+                record.forecast_policy["wire_format"] = "definition-first-v1"
+            else:
                 probability_instructions = "尚未取得来源，probabilities必须为null；说明需要补充什么资料，不编造概率。"
             instructions += (
                 "优先完成一份可读报告：conclusion直接回答哪些现实做法可能改变、由谁推动、为何形成这些路径，不复述用户要求。"
-                "scenarios简述各条路径的主体行动与局势变化，并与scenario_details和概率键保持一致。"
+                "scenarios简述各条路径的主体行动与局势变化，并与终态定义和权重保持一致。"
                 "supporting/opposing分别解释具体事实或条件如何推动、阻碍某条路径；有H/S依据的机制明说是条件推演。"
-                "scenario_details.rationale使用S结果时明确‘在该假设/模拟路径下’；E只支持其实际记载的前提，不能将同段的S结果改写为已发生历史事实。"
+                "终态rationale使用S结果时明确‘在该假设/模拟路径下’；E只支持其实际记载的前提，不能将同段的S结果改写为已发生历史事实。"
                 "new_information列值得跟踪的具体行动、指标或规则变化，以及出现后会提高或降低哪条路径的相对概率。"
                 "limitations只简明说明会影响上述判断的实际缺口，不以笼统不确定性或‘没有完整原文’充当报告正文。"
                 "模型假设、模拟结果及被遮蔽的比例不是新增观测，不要声称其经过实测。"
@@ -1108,15 +1119,22 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         usable_candidates = []
         last_failure = "模型未返回可用报告"
         for attempt in range(2):
+            wire_audit = None
             try:
-                forecast = ask("forecast", forecast_payload, forecast_schema,
+                response = ask("forecast", forecast_payload, forecast_schema,
                                instructions + "解释应充分且具体：结论2–4句，支持与反对主张说明来源联系和限制，每个情景应能独立读懂；避免只写标题或重复套话。" + probability_instructions)
+                if isinstance(response, DefinitionFirstForecast):
+                    wire_audit = {"candidate": response.model_dump(mode="json"), "validation_errors": []}
+                    record.forecast_policy.setdefault("wire_attempts", []).append(wire_audit)
+                forecast = to_public_forecast(response)
             except ModelCancelled:
                 raise
             except (ValueError, RuntimeError, BudgetExceeded) as exc:
                 if question.mode != "scenario":
                     raise
                 last_failure = f"{type(exc).__name__}: {exc}"
+                if wire_audit is not None:
+                    wire_audit["validation_errors"].append(last_failure)
                 record.errors.append(f"报告生成尝试{attempt + 1}失败：{last_failure}")
                 forecast_payload["validation_feedback"] = f"请重新输出符合JSON结构的完整报告：{last_failure}"
                 if store is not None:
@@ -1196,6 +1214,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 return {"forecast": forecast.model_dump(mode="json")}
             except ValueError as exc:
                 last_failure = str(exc)
+                if wire_audit is not None:
+                    wire_audit["validation_errors"].append(last_failure)
                 usable_candidates.append(forecast.model_copy(deep=True))
                 record.forecast_attempts.append(ForecastAttempt(candidate=candidate, validation_errors=[str(exc)]))
                 # Persist the rejected public output before another request can fail.
