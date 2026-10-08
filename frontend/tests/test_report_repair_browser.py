@@ -195,3 +195,20 @@ def test_polling_syncs_terminal_run_into_sidebar_and_history(page, app_url, term
     expect(page.locator(".history-row span")).to_have_text(label)
     page.locator(".history-row").click()
     expect(page.locator(".work-status .status-label")).to_have_text(label)
+
+
+def test_report_labels_review_issues_as_model_questions_and_preserves_text(page, app_url):
+    run = rejected_run()
+    run["forecast"]["conclusion"] = "后续发展取决于仍待核查的条件。"
+    run["forecast"]["limitations"] = ["已有材料存在覆盖范围限制。"]
+    run["review"] = {"status": "needs_revision", "issues": [{"severity": "warning", "claim": "标准不透明",
+        "explanation": "模型根据 F001 提出这一疑问，仍需对照来源原文核查。", "affected_ids": ["F001"]}],
+        "unsupported_claims": [], "missing_evidence": []}
+    original = deepcopy(run)
+    open_report(page, app_url, run)
+    section = page.locator(".report-section").filter(has=page.get_by_role("heading", name="残余风险与审查", exact=True))
+    expect(section.locator(":scope > p.subtle")).to_have_text("以下是模型提出的待核查问题，不代表已证实的来源结论。")
+    expect(section.locator(".conclusion-entry strong")).to_have_text("标准不透明")
+    expect(section.locator(".conclusion-entry p")).to_have_text("模型根据 F001 提出这一疑问，仍需对照来源原文核查。")
+    expect(section.locator(":scope > p.subtle + article")).to_have_count(1)
+    assert run == original
