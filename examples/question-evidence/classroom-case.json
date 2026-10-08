@@ -1,0 +1,19 @@
+{
+  "case_id": "question-evidence-demo",
+  "label": "固定教学案例：虚构资料与固定响应",
+  "question": {
+    "question": "青岚开源社区已经完成全部测试，所以V2肯定能在11月15日前发布吧？",
+    "mode": "binary",
+    "as_of": "2026-09-26T08:00:00Z",
+    "resolve_by": "2026-11-15T23:59:00Z",
+    "user_assumptions": [],
+    "resolution_rule": "以青岚开源社区官方版本页出现 V2 正式版且可下载为是，否则为否。",
+    "resolution_source": "教学虚构情境：不存在真实结算来源"
+  },
+  "normalized_question": "青岚开源社区能否在 2026 年 11 月 15 日前发布 V2 正式版？",
+  "allowed_answers": [
+    "可下载的正式版",
+    "正式版且可下载"
+  ],
+  "disclosure": "没有真实搜索或模型调用；固定流程测试不能证明语义质量。"
+}

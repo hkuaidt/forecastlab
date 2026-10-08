@@ -5,7 +5,7 @@ from playwright.sync_api import expect
 @pytest.mark.parametrize("viewport", [{"width": 1724, "height": 864}, {"width": 390, "height": 844}])
 @pytest.mark.parametrize("motion", ["no-preference", "reduce"])
 def test_new_research_is_blank_and_does_not_start_run(page, app_url, viewport, motion):
-    from test_agent12_browser import routes
+    from test_question_evidence_browser import routes
     routes(page)
     page.set_viewport_size(viewport)
     page.emulate_media(reduced_motion=motion)

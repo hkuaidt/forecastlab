@@ -80,7 +80,7 @@ class ModelClient:
                 if self.usage["calls"] >= self.call_limit or self.active_seconds >= config.MAX_SECONDS:
                     raise BudgetExceeded("模型调用或总活动时限已达到上限")
                 # Persist BEFORE issuing the HTTP request; unknown-token failures still spend a call.
-                record = (self.on_reserve(digest, "agent12-v1") if self.on_reserve else
+                record = (self.on_reserve(digest, "question-evidence-v1") if self.on_reserve else
                           ModelCallRecord(request_id=f"request_{uuid4().hex}", owner_id="unbound",
                                           phase="runtime", input_hash=digest, attempt=attempt+1))
                 record.model = config.MODEL_NAME
@@ -95,7 +95,7 @@ class ModelClient:
                               {"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                     temperature=config.MODEL_TEMPERATURE,
-                    max_tokens=int(os.getenv("FORECASTLAB_MAX_OUTPUT_TOKENS", str((8000 if role in {"review", "forecast", "evidence", "evidence12"} else 3000) + attempt * 1000))),
+                    max_tokens=int(os.getenv("FORECASTLAB_MAX_OUTPUT_TOKENS", str((8000 if role in {"review", "forecast", "evidence", "evidence_assessment"} else 3000) + attempt * 1000))),
                 )
                 thinking = os.getenv("FORECASTLAB_ENABLE_THINKING", "false").strip().lower() in {"1", "true", "yes"}
                 if config.MODEL_BASE_URL.startswith(("http://127.0.0.1:", "http://localhost:")):

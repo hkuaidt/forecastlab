@@ -52,7 +52,7 @@
 .research-desk .reading-report .report-section p{font-size:14px;line-height:1.9}
 
 /* Preserve Fork evidence-quality summary inside the new Research Workspace */
-/* Agent 2 quality coverage is an explanatory layer within the full workflow. */
+/* 证据评估 quality coverage is an explanatory layer within the full workflow. */
 .evidence-quality-profile{margin:16px 0 20px;padding:16px;border:1px solid #dce8df;background:#f9fcf9;border-radius:8px}
 .evidence-quality-heading{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:7px;margin-bottom:14px}
 .evidence-quality-heading h4{font-size:13px;color:#173e31;margin:0}

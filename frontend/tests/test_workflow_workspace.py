@@ -4,7 +4,7 @@ from playwright.sync_api import expect
 
 @pytest.mark.parametrize('width',[1440,390])
 def test_workflow_navigation_and_mobile_detail(page,app_url,width):
-    from test_agent12_browser import routes, evidence_run
+    from test_question_evidence_browser import routes, evidence_run
     routes(page,runs=[evidence_run()])
     page.set_viewport_size({'width':width,'height':900})
     page.goto(app_url)
@@ -26,7 +26,7 @@ def test_workflow_navigation_and_mobile_detail(page,app_url,width):
 
 def test_rejected_model_summary_is_not_presented_as_a_research_conclusion(page, app_url):
     from copy import deepcopy
-    from test_agent12_browser import RUN, routes
+    from test_question_evidence_browser import RUN, routes
     run = deepcopy(RUN)
     run["forecast"] = {"status": "scenario_only", "conclusion": "自动摘要未通过校验", "probabilities": None,
         "supporting": [{"text": "不应展示的支持主张", "evidence_ids": [], "assumption_ids": [], "simulation_ids": []}],

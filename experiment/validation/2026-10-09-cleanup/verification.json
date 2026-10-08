@@ -1,0 +1,30 @@
+{
+  "backend": {
+    "command": ".venv/bin/python -m pytest -q",
+    "exit_code": 0
+  },
+  "browser": {
+    "command": ".venv/bin/python -m pytest frontend/tests -q",
+    "exit_code": 0
+  },
+  "suite": {
+    "command": ".venv/bin/python experiment/validate_suite.py",
+    "exit_code": 0
+  },
+  "historical_payloads": {
+    "original_commit": "4f3f3028a9e9a72c4a091e30f225e14f1d72e3d9",
+    "verified_payloads": 234,
+    "exceptions": []
+  },
+  "fixture": {
+    "command": "python eval/question_evidence.py --mode fixture --cases examples/question-evidence/neutral-leading-pairs.json --output /tmp/forecastlab-cleanup-fixture.json",
+    "cases": 2,
+    "completed": 2,
+    "semantic_review": "not_performed"
+  },
+  "entailment_rebuild": {
+    "command": "python eval/build_entailment_benchmark.py --output /tmp/forecastlab-entailment.json --post-boundary-output /tmp/forecastlab-post-boundary.json",
+    "broad_rows": 317,
+    "post_boundary_rows": 239
+  }
+}

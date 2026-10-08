@@ -1,4 +1,4 @@
-"""Deterministic Agent 1–2 fixtures; never contact a model/search service."""
+"""Deterministic 问题定义与证据评估 fixtures; never contact a model/search service."""
 from copy import deepcopy
 from datetime import datetime, timezone
 import pytest

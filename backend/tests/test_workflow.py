@@ -303,8 +303,8 @@ def test_reuse_keeps_frozen_evidence_and_history(monkeypatch):
             self.usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
         def complete(self, role, payload, schema, instructions, **kwargs):
             self.usage["calls"] += 1
-            if role == "evidence12":
-                # The production route now calls Agent 2 even for imported
+            if role == "evidence_assessment":
+                # The production route now calls 证据评估 even for imported
                 # evidence. Stub its exact-quote contract, not the legacy
                 # "evidence" response, so the test exercises real validation.
                 evidence = payload["evidence"][0]

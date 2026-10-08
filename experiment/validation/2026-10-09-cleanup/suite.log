@@ -1,0 +1,11 @@
+
+== experiment/v1-2026-10-04/suite/forecastlab-v1.json (forecastlab-v1) ==
+   -> total=24 ok=24 bad=0
+
+== experiment/v2-postcutoff-2026-10-07/suite/forecastlab-v2-postcutoff.json (forecastlab-v2-postcutoff) ==
+   -> total=20 ok=20 bad=0
+
+== experiment/v3v4-evidence-and-gates-2026-10-08/suite/forecastlab-v3v4.json (forecastlab-v3v4) ==
+   -> total=20 ok=20 bad=0
+
+套件数=3 问题数=0

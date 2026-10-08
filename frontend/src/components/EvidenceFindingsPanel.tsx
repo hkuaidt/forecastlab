@@ -32,7 +32,7 @@ export function EvidenceFindingsPanel({ framing, assessment, evidence, onInspect
   }
   const visible = (assessment?.findings || []).filter(f => (!premise || f.target_premise_ids.includes(premise)) && (!relation || f.relation === relation) && f.citations.some(c => stateMatches(c.evidence_id)))
   return <section className="panel findings-panel" aria-label="逐项证据发现">
-    <div className="panel-title"><h3>前提与证据发现</h3><span className="badge">Agent 2</span></div>
+    <div className="panel-title"><h3>前提与证据发现</h3><span className="badge">证据评估</span></div>
     <div className="framing-body">
       <p className="muted">发现是对来源的分析，不是新增的外部证据。引用定位通过校验，也不等于推论已经成立。</p>
       <details><summary>已确认的问题理解 · 版本 {framing.revision}</summary><p>{framing.proposed_spec.question}</p>{framing.premises.map(p =>

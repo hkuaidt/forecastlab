@@ -1,0 +1,13 @@
+
+> forecastlab-workspace@0.1.0 build
+> tsc -b && vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 36 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.43 kB │ gzip:  0.33 kB
+dist/assets/index-B_TbCdcC.css   34.72 kB │ gzip:  8.19 kB
+dist/assets/index-B9vjBPft.js   277.14 kB │ gzip: 86.57 kB
+✓ built in 368ms

@@ -383,7 +383,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             instructions += " 待核查前提不是事实；P不能作为外部证据。"
         if record.evidence_assessment and record.evidence_assessment.findings_validated:
             if role == "review":
-                instructions += (" F编号是经过原文校验的Agent 2结构化发现，可在affected_ids中定位审查对象，"
+                instructions += (" F编号是经过原文校验的证据评估结构化发现，可在affected_ids中定位审查对象，"
                                  "但F本身不是外部证据；解释支持关系时仍应回到其底层E引用。")
             elif role == "world":
                 instructions += (" assumption.parent_ids可引用经过原文校验的F作为中间溯源节点；"
@@ -430,7 +430,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 store.save(record)
             evidence_model = model
             if record.demo:
-                from .agent12_demo import EvidenceFixtureModel
+                from .question_evidence_demo import EvidenceFixtureModel
                 evidence_model = EvidenceFixtureModel()
             assessment = assess_evidence(question, record.question_framing, retrieval, evidence_model, data_dir)
             record.evidence, record.evidence_assessment = retrieval.evidence, assessment

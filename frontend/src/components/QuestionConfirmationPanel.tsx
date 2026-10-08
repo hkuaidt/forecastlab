@@ -19,7 +19,7 @@ export function QuestionConfirmationPanel({ demoQuestion, framing, confirmationI
   const decisions = (): PremiseDecision[] => (framing?.premises || []).map(p => ({ premise_id: p.id,
     user_review: choices[p.id] === 'rejected' ? 'rejected' : 'retained', treatment: choices[p.id] === 'scenario_condition' ? 'scenario_condition' : 'to_verify' }))
   return <section className="panel framing-panel" aria-label="问题分析与确认">
-    <div className="panel-title"><h3>先确认研究问题</h3><span className="badge">Agent 1</span></div>
+    <div className="panel-title"><h3>先确认研究问题</h3><span className="badge">问题分析</span></div>
     <div className="framing-body">
       {demoQuestion && !framing && <div role="status" className="framing-warning">
         <strong>已载入教学问题</strong><p>{demoQuestion}</p>
