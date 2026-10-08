@@ -206,7 +206,7 @@ def test_whole_finding_omission_cannot_orphan_assumption_parent():
                           max_model_len=16384, max_output_tokens=4096, token_counter=counter)
 
 
-def test_source_omission_filters_review_allowlist_without_removing_other_node_types():
+def test_source_omission_filters_actor_allowlist_without_removing_other_node_types():
     rows = [source(i+1, "Source material. "*90) for i in range(2)]
     payload = {"evidence": rows, "valid_affected_ids": ["E001", "E002", "F001", "F002", "H001", "A001", "S1"],
         "evidence_assessment": {"summary": "Coverage", "findings_validated": True,
@@ -214,7 +214,7 @@ def test_source_omission_filters_review_allowlist_without_removing_other_node_ty
     def counter(messages):
         data = json.loads(messages[1]["content"])
         return 20000 if len(data["evidence"]) > 1 else chars(messages)
-    result = fit_local_context(payload, schema={}, instructions="", role="review",
+    result = fit_local_context(payload, schema={}, instructions="", role="actor",
                                max_model_len=16384, max_output_tokens=4096, token_counter=counter)
     assert result.payload["valid_affected_ids"] == ["E001", "F001", "H001", "A001", "S1"]
     assert json.loads(result.messages[1]["content"])["valid_affected_ids"] == result.payload["valid_affected_ids"]
@@ -241,7 +241,7 @@ def test_optional_source_can_be_omitted_while_required_trace_and_user_conditions
     def counter(messages):
         data = json.loads(messages[1]["content"])
         return 20000 if len(data["evidence"]) > 1 else chars(messages)
-    result = fit_local_context(payload, schema={}, instructions="", role="forecast",
+    result = fit_local_context(payload, schema={}, instructions="", role="world",
                                max_model_len=16384, max_output_tokens=4096, token_counter=counter)
     assert [e["id"] for e in result.payload["evidence"]] == ["E001"]
     assert result.payload["world"] == world

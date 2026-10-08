@@ -57,9 +57,131 @@ def compact_model_payload(payload: dict) -> dict:
     return result
 
 
+def evidence_input_projection(payload: dict) -> dict:
+    """Wire-only Agent 2 view; original sources/offsets remain available to fitting.
+
+    Every selected quote, paragraph ID and snapshot hash stays intact. Only
+    redundant protocol data is removed; this never reconstructs citation hashes.
+    """
+    result = compact_model_payload(payload)
+    framing = result.get("question_framing")
+    if isinstance(framing, dict):
+        for key in ("schema_version", "draft_id", "revision", "status", "next_premise_number", "demo_case_id"):
+            framing.pop(key, None)
+        proposed = framing.get("proposed_spec")
+        question = result.get("question")
+        if (isinstance(proposed, dict) and isinstance(question, dict)
+                and all(key in question and question[key] == value for key, value in proposed.items())):
+            framing.pop("proposed_spec", None)
+        # Keep unexecuted/different plans and premise targeting. Only a plan whose
+        # full meaning already exists in its execution log is redundant.
+        logs = {log.get("task_id"): log for log in result.get("retrieval_log", []) if isinstance(log, dict)}
+        remaining = []
+        for plan in framing.get("retrieval_plan", []):
+            log = logs.get(plan.get("id")) if isinstance(plan, dict) else None
+            redundant = (log is not None and plan.get("query") == log.get("query")
+                         and plan.get("purpose") == log.get("purpose")
+                         and not plan.get("target_premise_ids")
+                         and set(plan) <= {"id", "query", "purpose", "target_premise_ids"})
+            if not redundant:
+                remaining.append(plan)
+        if remaining:
+            framing["retrieval_plan"] = remaining
+        else:
+            framing.pop("retrieval_plan", None)
+    for log in result.get("retrieval_log", []):
+        if isinstance(log, dict):
+            log.pop("elapsed_seconds", None)
+    for source in result.get("evidence", []):
+        for passage in source.get("passages", []):
+            # The model returns paragraph_id + exact quote. Absolute offsets are
+            # resolved against the original, server-owned passage after generation.
+            passage.pop("start", None)
+            passage.pop("end", None)
+    return result
+
+
+_QUOTE_VIEW = "verified_quotes_and_selected_excerpts"
+
+
+def downstream_input_projection(payload: dict) -> dict:
+    """Review/report view: show validated F quotes once, without duplicate windows.
+
+    This is a private model view, never a replacement for persisted Evidence.
+    All causal nodes, conditions, unresolved issues and finding limitations remain.
+    """
+    if (payload.get("evidence_view") or {}).get("kind") == _QUOTE_VIEW:
+        return deepcopy(payload)
+    result = compact_model_payload(payload)
+    framing = result.get("question_framing")
+    question = result.get("question")
+    proposed = framing.get("proposed_spec") if isinstance(framing, dict) else None
+    if (isinstance(proposed, dict) and isinstance(question, dict)
+            and all(key in question and question[key] == value for key, value in proposed.items())):
+        # Only an exact duplicate of the final question can be omitted. Distinct
+        # user scope/conditions stay visible, including resolved clarifications.
+        framing.pop("proposed_spec", None)
+    assessment = result.get("evidence_assessment")
+    if not isinstance(assessment, dict) or assessment.get("findings_validated") is not True:
+        return result
+    source_key = "evidence" if isinstance(result.get("evidence"), list) else "visible_evidence"
+    sources = {e["id"]: e for e in result.get(source_key, [])}
+    if not sources:
+        return result
+    passages = {(e["id"], p["paragraph_id"]): p for e in sources.values() for p in e.get("passages", [])}
+    quoted_sources = set()
+    for finding in assessment.get("findings", []):
+        if not finding.get("citations"):
+            return result
+        for citation in finding["citations"]:
+            source = sources.get(citation.get("evidence_id"))
+            passage = passages.get((citation.get("evidence_id"), citation.get("paragraph_id")))
+            start, end, quote = citation.get("start"), citation.get("end"), citation.get("quote")
+            if (source is None or passage is None or not isinstance(quote, str) or not quote
+                    or not isinstance(start, int) or not isinstance(end, int)
+                    or not isinstance(passage.get("start"), int) or not isinstance(passage.get("end"), int)
+                    or not isinstance(passage.get("text"), str)
+                    or not source.get("snapshot_hash")
+                    or citation.get("snapshot_hash") != source["snapshot_hash"]
+                    or passage.get("snapshot_hash") != source["snapshot_hash"]
+                    or not passage["start"] <= start < end <= passage["end"]
+                    or passage["text"][start-passage["start"]:end-passage["start"]] != quote):
+                # A malformed/legacy citation cannot replace its source text. Let
+                # the normal context/validation path handle it without certifying it.
+                return result
+            quoted_sources.add(source["id"])
+    for source in sources.values():
+        if source["id"] in quoted_sources:
+            source.pop("passages", None)
+            source.pop("excerpt", None)
+        elif source.get("passages"):
+            rows = source["passages"]
+            short = [p for p in rows if len(p["text"]) <= 350]
+            # Keep an actual whole passage, never a generated title/summary or
+            # arbitrary substring. Longer paragraphs remain whole if none is short.
+            selected = max(short, key=lambda p: len(p["text"])) if short else min(rows, key=lambda p: len(p["text"]))
+            source["passages"] = [selected]
+    result["evidence_view"] = {
+        "kind": _QUOTE_VIEW,
+        "note": "已引用来源的完整已核验引句仅在 evidence_assessment.findings[].citations.quote 展示一次；"
+                "E/段落编号/hash/绝对位置不变。未产生Finding的来源保留实际短段。"
+                "只核对这些有限选文，不声称重读完整网页；未展示原文不表示原文不存在。",
+    }
+    return result
+
+
+def _wire_payload(role: str, payload: dict) -> dict:
+    if role == "evidence12":
+        return evidence_input_projection(payload)
+    if role in {"review", "forecast"}:
+        return downstream_input_projection(payload)
+    return payload
+
+
 def model_messages(role: str, payload: dict, schema: dict, instructions: str,
                    *, repair_feedback: str | None = None) -> list[dict[str, str]]:
-    prompt = json.dumps(payload, ensure_ascii=False, default=str, separators=(",", ":"))
+    wire = _wire_payload(role, payload)
+    prompt = json.dumps(wire, ensure_ascii=False, default=str, separators=(",", ":"))
     if repair_feedback:
         prompt += f"\n上次输出无效：{repair_feedback}。请仅输出符合 schema 的 JSON。"
     return [
@@ -154,8 +276,8 @@ def _bounded_evidence_payload(payload: dict, budget: int) -> tuple[dict, list[st
 def _compact_trace(payload: dict) -> dict:
     """Retain causal statements and reference IDs, dropping repeated agent exposition."""
     result = deepcopy(payload)
-    action_keys = {"id", "actor_id", "round", "action", "evidence_ids", "assumption_ids", "conditions"}
-    step_keys = {"id", "round", "summary", "state_changes", "conflicts", "unresolved", "evidence_ids", "assumption_ids"}
+    action_keys = {"id", "actor_id", "round", "action", "evidence_ids", "assumption_ids", "conditions", "parent_ids", "parent_state"}
+    step_keys = {"id", "round", "summary", "state_changes", "conflicts", "unresolved", "evidence_ids", "assumption_ids", "parent_ids", "parent_state", "next_state"}
     for key, allowed in (("actions", action_keys), ("simulation", step_keys)):
         if isinstance(result.get(key), list):
             result[key] = [{k: v for k, v in row.items() if k in allowed} for row in result[key]]
@@ -178,6 +300,15 @@ def _visible_evidence_references(payload: dict) -> set[str]:
                for row in (payload.get(key) or []) if isinstance(row, dict)
                and row.get("id") and (row.get("passages") or row.get("excerpt"))}
     assessment = payload.get("evidence_assessment") or {}
+    if ((payload.get("evidence_view") or {}).get("kind") == _QUOTE_VIEW
+            and assessment.get("findings_validated") is True):
+        # Internal quote views retain each source's body in its validated F quotes.
+        rows = {row["id"]: row for key in ("evidence", "visible_evidence") for row in payload.get(key, [])}
+        for finding in assessment.get("findings", []):
+            for citation in finding.get("citations", []):
+                row = rows.get(citation.get("evidence_id"))
+                if row and citation.get("quote") and citation.get("snapshot_hash") == row.get("snapshot_hash"):
+                    sources.add(row["id"])
     findings = {finding["id"] for finding in assessment.get("findings", [])
                 if finding.get("id") and finding.get("citations")
                 and all(c["evidence_id"] in sources for c in finding["citations"])}
@@ -217,9 +348,14 @@ def fit_local_context(payload: dict, *, schema: dict, instructions: str, role: s
     # Environment prompts intentionally carry trace alone. Protect source/finding
     # roots that this request actually supplied; never delete causal parent IDs.
     required_references = _trace_evidence_references(base) & _visible_evidence_references(base)
+    preserve_all_roots = role in {"review", "forecast"}
+    if preserve_all_roots:
+        required_references |= _visible_evidence_references(base)
     def candidates():
         yield compact_model_payload(base), [], []
-        trace = _compact_trace(base)
+        # Review/report must retain refusals, unresolved steps and all conditions,
+        # even on a fallback path. Only the evidence display may become smaller.
+        trace = deepcopy(base) if preserve_all_roots else _compact_trace(base)
         if trace != base:
             yield compact_model_payload(trace), [], ["上下文预算：已精简行动解释和假设说明，保留行动、条件、主体能力约束与引用编号。"]
         key = "evidence" if isinstance(trace.get("evidence"), list) else "visible_evidence"
@@ -228,12 +364,18 @@ def fit_local_context(payload: dict, *, schema: dict, instructions: str, role: s
             return
         for budget in (1200, 900, 600, 350, 160):
             reduced, omitted = _bounded_evidence_payload(trace, budget)
+            if preserve_all_roots and not omitted and isinstance(trace.get("evidence_assessment"), dict):
+                # Schema validation may add optional defaults. The report view
+                # keeps the original complete finding objects and their wording.
+                reduced["evidence_assessment"]["findings"] = deepcopy(trace["evidence_assessment"].get("findings", []))
             if not any(e.get("passages") or e.get("excerpt") for e in reduced[key]):
                 continue
             notes = [f"上下文预算：每个来源最多保留 {budget} 字符原文；省略内容不表示其不存在。"]
             if omitted:
                 notes.append("本次上下文已整体省略发现：" + "、".join(omitted) + "；不得以缺少这些引文推断其结论为假。")
             yield compact_model_payload(reduced), omitted, notes
+        if preserve_all_roots:
+            return
         # If a long paragraph cannot be shortened without losing its quote, keep
         # fewer whole sources and remove every finding that depends on a removed
         # source. Never retain half of a multi-source finding or hide all evidence.
@@ -284,6 +426,6 @@ def fit_local_context(payload: dict, *, schema: dict, instructions: str, role: s
         count = counter(messages)
         window = min(max_model_len, getattr(counter, "max_model_len", max_model_len))
         if count + reserve <= window:
-            return ContextBudgetResult(candidate, messages, count, max_output_tokens, omitted, limitations)
+            return ContextBudgetResult(_wire_payload(role, candidate), messages, count, max_output_tokens, omitted, limitations)
     raise ContextBudgetExceeded(
         f"模型上下文不足：精简后输入仍需 {count} tokens，窗口 {window}，需保留 {reserve} 输出 tokens；请缩短问题或减少必须保留的分析材料。")

@@ -137,9 +137,9 @@ def test_zoom_fit_minimap_and_collapse_controls_remain_usable(page, app_url):
     page.get_by_role("button", name="适应画布", exact=True).click()
     assert position(canvas) == {"left": 0, "top": 0}
     page.get_by_role("button", name="折叠证据核查分支", exact=True).click()
-    expect(page.get_by_role("button", name="来源：来源 E001", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="证据发现：计划延期的迹象", exact=True)).to_have_count(0)
     page.get_by_role("button", name="展开证据核查分支", exact=True).click()
-    expect(page.get_by_role("button", name="来源：来源 E001", exact=True)).to_have_count(1)
+    expect(page.get_by_role("button", name="证据发现：计划延期的迹象", exact=True)).to_have_count(1)
 
 
 def test_touch_can_pan_natively_and_tap_nodes(browser, app_url):

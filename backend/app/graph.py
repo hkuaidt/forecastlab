@@ -112,8 +112,8 @@ def market_price_context(question: QuestionSpec, evidence: list[Evidence]) -> di
 
 def trace_for_model(state: FlowState) -> dict:
     """Keep the causal trace and references without repeating verbose agent prose."""
-    action_keys = {"id", "actor_id", "round", "action", "evidence_ids", "assumption_ids", "conditions"}
-    step_keys = {"id", "round", "summary", "state_changes", "conflicts", "unresolved", "evidence_ids", "assumption_ids"}
+    action_keys = {"id", "actor_id", "round", "action", "evidence_ids", "assumption_ids", "conditions", "parent_ids", "parent_state"}
+    step_keys = {"id", "round", "summary", "state_changes", "conflicts", "unresolved", "evidence_ids", "assumption_ids", "parent_ids", "parent_state", "next_state"}
     return {
         "actions": [{key: value for key, value in action.items() if key in action_keys} for action in state["actions"]],
         "simulation": [{key: value for key, value in step.items() if key in step_keys} for step in state["simulation"]],
@@ -231,14 +231,30 @@ def validated_finding_ids(assessment: EvidenceAssessment, evidence_ids: set[str]
 
 
 def canonicalize_forecast_ids(forecast: Forecast, evidence: list[Evidence], world: WorldState,
-                              simulation: list[SimulationStep]) -> None:
+                              simulation: list[SimulationStep],
+                              assessment: dict | None = None) -> None:
     evidence_ids = {item.id for item in evidence}
     assumption_ids = {item.id for item in world.assumptions}
     simulation_ids = {item.id for item in simulation}
+    aliases = {}
+    if assessment and assessment.get("findings_validated") is True:
+        checked = EvidenceAssessment.model_validate(assessment)
+        trusted = validated_finding_ids(checked, evidence_ids)
+        aliases = {fid: ids for fid, ids in finding_evidence_map(assessment).items() if fid in trusted}
     for claim in [*forecast.supporting, *forecast.opposing, *forecast.scenario_details]:
-        claim.evidence_ids = canonical_ids(claim.evidence_ids, evidence_ids)
+        refs = canonical_ids(claim.evidence_ids, evidence_ids | set(aliases))
+        # F is an already validated intermediary, not another external source.
+        # Unknown/unvalidated F stays in place for normal rejection; never guess E.
+        claim.evidence_ids = list(dict.fromkeys(eid for ref in refs for eid in aliases.get(ref, [ref])))
         claim.assumption_ids = canonical_ids(claim.assumption_ids, assumption_ids)
         claim.simulation_ids = canonical_ids(claim.simulation_ids, simulation_ids)
+        # A literal reference in public prose is an auditable locator. Fill only
+        # the real S IDs actually mentioned here; never attach the whole trace.
+        reference_text = " ".join([getattr(claim, "text", ""), getattr(claim, "definition", ""),
+                                   getattr(claim, "rationale", ""), *getattr(claim, "conditions", [])])
+        mentioned = [step.id for step in simulation if re.search(
+            rf"(?<![A-Za-z0-9_]){re.escape(step.id)}(?![A-Za-z0-9_])", reference_text)]
+        claim.simulation_ids = list(dict.fromkeys([*claim.simulation_ids, *mentioned]))
     forecast.key_assumptions = canonical_ids(forecast.key_assumptions, assumption_ids)
 
 
@@ -381,6 +397,26 @@ def validate_scenario_quantification(forecast: Forecast, evidence: list[Evidence
 
 
 
+def validate_scenario_end_states(forecast: Forecast, simulation: list[SimulationStep]) -> None:
+    """Reject literal round identifiers or copied states, not semantic outcome labels."""
+    step_ids = {step.id for step in simulation}
+    normalize = lambda text: " ".join(text.split())
+    summaries = {normalize(step.summary) for step in simulation if step.summary.strip()}
+    invalid = []
+    for name in forecast.probabilities or {}:
+        if name.strip() in step_ids:
+            invalid.append(f"probabilities[{name}]")
+    for index, detail in enumerate(forecast.scenario_details):
+        if detail.name.strip() in step_ids:
+            invalid.append(f"scenario_details[{index}].name")
+        if normalize(detail.definition) in summaries:
+            invalid.append(f"scenario_details[{index}].definition")
+    if invalid:
+        raise ValueError("S编号和逐字轮次摘要表示同一轨迹的先后状态，不能充当互斥终局；需修改字段："
+                         + ", ".join(invalid)
+                         + "。请在同一目标日期、范围和判定轴下给出具名终态；S仅作为实际使用的模拟依据引用。")
+
+
 def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list[Evidence], world: WorldState,
                       simulation: list[SimulationStep], review: Review, *, require_probability: bool = False):
     evidence_ids = {e.id for e in evidence}
@@ -443,6 +479,8 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
             names = [detail.name for detail in forecast.scenario_details]
             if len(set(names)) != len(names) or set(names) != set(forecast.probabilities):
                 raise ValueError("scenario_details名称必须与probabilities逐项对应且不重复")
+        if question.mode == "scenario":
+            validate_scenario_end_states(forecast, simulation)
         forecast.status = "completed"
         note = "概率为模型基于现有证据与假设给出的主观分配，未经校准，不是来源实测频率。"
         if note not in forecast.limitations:
@@ -591,7 +629,13 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                                         search_queries=[question.question[:400]])
             return {"question_analysis": analysis.model_dump(mode="json")}
         analysis = ask("question", {"question": question.model_dump(mode="json")}, QuestionAnalysis,
-                       "用户已确认预测目标和结算规则。用一句话规范化问题，给最多 3 个适合寻找原始资料的检索词；不要自行更改日期或结算条件。")
+                       "用户已确认预测目标和结算规则。用一句话规范化问题，给最多 3 个适合寻找原始资料的检索词；不要自行更改日期或结算条件。"
+                       "围绕具名主体已采取的行动、实际结果和决定下一步选择的资源或规则找资料；不要检索情景数量、概率分配等报告格式要求。"
+                       "每条检索词聚焦不同实际任务或决策变量，并带实验结果、项目记录、技术文档或规则等具体资料类型；不要把所有主体塞进一个泛泛的‘现状和影响’查询。"
+                       "最多3条按用户明确列出的任务分配，明确三个任务时各覆盖一项；主体或工具名不替代任务覆盖，避免重复同一环节。"
+                       "全球技术生态优先用英文术语寻找一手论文、项目记录、官方文档或机构规则；当地制度问题使用当地机构与语言。"
+                       "数学题短正例为‘AI mathematical conjectures research paper’‘Lean theorem prover official documentation’‘journal generative AI peer review policy’；其他题目替换实际任务与术语，不能套用数学分类。"
+                       "‘现状及未来发展趋势’不是原始资料类型，不能代替论文、实验记录、官方文档或机构规则。")
         analysis.search_queries = [q[:400] for q in analysis.search_queries[:3]]
         return {"question_analysis": analysis.model_dump(mode="json")}
 
@@ -626,7 +670,14 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             if record.demo:
                 from .agent12_demo import EvidenceFixtureModel
                 evidence_model = EvidenceFixtureModel()
-            assessment = assess_evidence(question, record.question_framing, retrieval, evidence_model, data_dir)
+            def save_evidence_progress(assessment):
+                record.evidence = [e.model_copy(deep=True) for e in retrieval.evidence]
+                record.evidence_assessment = assessment
+                if store is not None:
+                    # Keep the current stage incomplete until the node returns.
+                    store.save(record, snapshot=False)
+            assessment = assess_evidence(question, record.question_framing, retrieval, evidence_model, data_dir,
+                                         on_progress=save_evidence_progress)
             record.evidence, record.evidence_assessment = retrieval.evidence, assessment
             return {"evidence": [e.model_dump(mode="json") for e in retrieval.evidence],
                     "evidence_assessment": assessment.model_dump(mode="json")}
@@ -637,7 +688,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             items = imported
         assessment = ask("evidence", {"question": state["question"], "evidence": evidence_for_model(items)}, EvidenceAssessment,
                          "归纳资料冲突和缺口，只引用实际存在的证据编号。搜索摘要不是全文证据；不可编造新来源。"
-                         "缺口只列信息截至时间当时可能取得却未提供的资料；未来结算结果尚未发生是预测对象，不是证据缺口。")
+                         "缺口只列信息截至时间当时可能取得却未提供的资料；未来结算结果尚未发生是预测对象，不是证据缺口。"
+                         "概括已有资料中主体已采取的行动、结果与约束；缺口具体到影响选择的记录或指标，不用‘没有完整原文’替代对可读内容的分析。")
         # Never trust a model-supplied validation flag on the legacy path.
         assessment.findings_validated = False
         check_ids(assessment.evidence_ids, {e.id for e in items}, "证据评估")
@@ -669,8 +721,19 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             "assumption.parent_ids 仅允许 E、经过校验的 F 或本次定义的 H 编号；"
             "world.evidence_refs 和 actor.visible_evidence_ids 必须引用 E。"
             "若无战略主体，可留空 actors 并说明原因。通常选择3–4个有实际决策作用且互不重复的主体，最多4个；根据问题需要可更少，不能为凑数虚构主体。"
+            "主体优先覆盖用户关心的互补决策权限，而不是挑证据里出现最多的机构；同类厂商可选一个代表，不得挤掉关键使用者或规则制定者。"
+            "例如数学科研题可选科研团队、一个最相关的工具提供者或形式化维护者、期刊编辑、资助方；期刊接收论文与资助拨款是不同权限，不能捏成同一主体。其他题目按各自决策角色选择，不套用数学名单。"
+            "缺乏具体机构依据时用明确标注的‘未具名模拟角色’，其立场、资源和约束放在H假设下，不假装已有具体机构政策。"
             "信息截至日之后尚未发生的事件不能陈述为既成事实。"
-            "summary用3–5句解释当前状态、驱动因素、约束与关键不确定性；每个假设的rationale解释依据与反证，主体的目标/资源/约束写具体。"
+            "这是Round 0当前局势，state_version=0：summary用3–5句把关键历史事实、已知影响与当前选择空间连起来，每句尽量写清主体、行为或状态、作用机制。"
+            "按本题选择3–5个能被行动改变的固定variables，键名简短稳定；值是截至日的具体起点，不重复列每个主体的泛泛活动。"
+            "数学题例如猜想产物核验状态、证明检验覆盖范围、期刊采用状态、资助决策状态；其他题目自行选择相应决策变量。"
+            "缺证时写‘未知’，不能写‘尚未采用/不存在’；证明工具或竞赛成绩不能证明期刊已有规则，融资新闻不能证明资助机构政策，禁止跨任务归因。"
+            "actors用具名机构或可识别的主体群体；代表性构造角色须明说是模型构造，不伪装为现实机构。"
+            "goal写主体想争取的利益和要保住什么；resources写实际能力与可控制资源；constraints写战略底线、权限限制和受制于谁。"
+            "relations写谁依赖谁的哪项资源、规则或行动，以及利益如何一致或冲突，不只列‘合作/竞争’。"
+            "决策倾向与尚未证实的机制放入assumptions，rationale解释依据、适用条件和反证；不要把模型推断冒充主体已公开的立场。"
+            "资料缺口只短写到相应变量或假设，不用重复问题或‘没有完整原文’替代当前局势分析。"
         )
         for attempt in range(2):
             world = ask("world", world_payload, WorldState, world_instructions)
@@ -757,6 +820,13 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 actor_payload = {
                     "question": state["question"], "actor": actor.model_dump(),
                     "state": current, "visible_evidence": visible, "round": round_number,
+                    # Only completed prior-round decisions are visible. Peers in
+                    # this round still decide independently and concurrently.
+                    "previous_round_actions": [
+                        a.model_dump(mode="json", include={"id", "actor_id", "action", "conditions", "rationale_summary"})
+                        for a in actions if a.round == round_number - 1
+                    ],
+                    "previous_round_unresolved": list(steps[-1].unresolved) if steps else [],
                     "valid_evidence_ids": sorted(actor_evidence_ids),
                     "valid_assumption_ids": sorted(actor_h_ids),
                 }
@@ -768,7 +838,12 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                     "仅做一次条件性行动；evidence_ids 只允许 valid_evidence_ids 中的 E，"
                     "assumption_ids 只允许 valid_assumption_ids 中的 H。H 是假设而不是证据。"
                     "不得声称预测期计划或假设的行动已经发生。"
-                    "rationale_summary用2–3句说明为何选择该行动、受哪些证据和约束影响；expected_impact解释作用机制与失败条件，不只给动作标题。"
+                    "action写明该主体对谁或什么实施哪项具体行动、动用什么能力或资源，行动规模不得超出其权限；不要只写‘加强合作/推动创新’。"
+                    "rationale_summary用2–3句结合当前state的具体变量解释利益取舍、受哪些证据和约束影响、为何此时采取该行动。"
+                    "expected_impact是主体预期，不是本轮已实现的结果；写行动希望如何改变已有状态变量、依赖谁的响应、谁可能受益或受损，以及何种条件下失效；未知幅度用定性表达，不编造数值。"
+                    "conditions写行动成立的具体前提。第二轮依据上一轮state的新变化调整选择；previous_round_actions和previous_round_unresolved仅为已完成的上一轮，不能预知本轮同伴行动。"
+                    "第二轮rationale_summary先点明上一状态或卡点，再说明本轮如何回应；已经完成的动作不重复宣布，不能机械复制第一轮。"
+                    "可以等待或维持已有安排，但要指明在等谁的哪项产物或哪项条件；若继续同一行动，说明为何仍有效及实施上有何推进。"
                 )
                 for attempt in range(2):
                     action = ask("actor", actor_payload, ActorAction, actor_instructions,
@@ -805,7 +880,15 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                        "此后状态只能用‘若...则...’的条件式描述，绝不能把计划或模拟结果写成已发生的历史事实。"
                        "state_changes 的键只能从 allowed_variable_keys 中选择，不得新增变量名；"
                        "如需提出新维度，请写在 summary 或 unresolved 中。"
-                       "summary用3–5句描述行动如何相互影响、形成哪些变化及仍未解决的条件；state_changes逐项解释变化原因。", round_number=round_number)
+                       "summary明确写‘本轮模拟’，用3–5句写本轮局势如何不同于输入state：点名至少两个相关行动怎样互相促进或抵消、谁受益或受损、哪个约束随之改变；不足两个行动时按实际行动说明。"
+                       "state_changes的值写清‘原状态→条件成立后的新状态；由谁的什么行动通过何种机制造成’，前值承接输入state的现值（可忠实简述），不能每轮都退回Round 0起点。"
+                       "区分计划、同意、执行、观测效果；没有新执行或新结果时不重复计算上一轮增量，不只复述动作或笼统写‘改善/恶化’，没有变化的变量无需填入。"
+                       "expected_impact只是主体预期，不能直接抄为state_changes；每项变化说明本轮哪个action触发，必要条件由输入state、对方action或明确H中的哪项支持。"
+                       "条件既未满足也未明确假设时，保留原变量状态，在unresolved写具体卡点；允许state_changes为空，不为凑变化虚构进展。"
+                       "涉及其他主体采用、认可或配合，须有对方action或明确H支持；H不能覆盖对方明确拒绝或已有约束，矛盾写入conflicts。"
+                       "对方同意试点只代表同意，未执行、未测量时不能写成已提高效率、准确率或采用效果；即使模拟假设了改善，也须保留假设条件，不能称测得改善。"
+                       "conflicts写具体主体之间的利益、资源或规则冲突；unresolved只列决定下一步走向的未决条件。"
+                       "可以推演定性变化，不能凭空生成效果百分比、发布日期或已实现成果；第二轮必须接续上一轮变量状态，而不是重新概述原问题。", round_number=round_number)
             unknown_variables = set(step.state_changes) - allowed_variables
             if unknown_variables:
                 step.state_changes = {key: value for key, value in step.state_changes.items() if key in allowed_variables}
@@ -845,7 +928,9 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         }
         review_instructions = (
             "检查证据是否支持关键判断、遗漏反证和模拟跳步。最多五个重点问题。"
-            "每个问题的explanation用2–3句交代原始依据、推断缺口及对情景概率的影响，并给出可补充的具体资料；不要只有笼统标签。"
+            "只核对上下文给出的已选引句和经过校验的F，不声称重新阅读了完整网页；选文未覆盖的内容保持未知。"
+            "每个问题的explanation用2–3句定位到具体主体行动、状态变量或因果连接，交代原始依据、推断缺口、会使哪条条件路径更强或更弱，并给出可补充的具体资料。"
+            "优先审查真正会改变决策或路径排序的缺口；不要重复问题、罗列抽象风险，或用‘没有完整原文’替代对已有来源和两轮变化的分析。"
             "审查时关注 evidence_assessment.quality_profile 的来源覆盖和限制；"
             "来源组不等于独立认证，来源数量不能自动修改概率或成为 blocked 判据。"
             "不要求预测期尚未发生的结果作为证据。affected_ids 只能使用 valid_affected_ids；"
@@ -981,23 +1066,32 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             probability_instructions = (f"概率键必须严格为 {question.outcomes}，数值在 0 到 1 且合计为 1；"
                                         "概率是未经校准的主观判断；证据不足或开放问题必须用 null。")
             forecast_schema = Forecast
-        instructions += (" 区分来源事实、假设与模拟；对未核实关系和数值说明限制，不把模型推演称为实测。")
+        instructions += (" 区分来源事实、假设与模拟；对未核实关系和数值说明限制，不把模型推演称为实测。"
+                         "只核对上下文已选引句和经过校验的F，不声称重新阅读完整网页；报告仍按有效E/H/S归属依据。")
         if question.mode == "scenario":
             forecast_payload = scenario_forecast_context(forecast_payload)
             record.forecast_policy = deepcopy(forecast_payload.get("forecast_policy", {}))
             forecast_schema = ScenarioForecast if evidence else Forecast
             probability_instructions = (
-                "这是开放场景研究：只要已有证据，就必须给出非null的probabilities。"
-                "优先使用三个清楚命名、互斥且覆盖主要可能性的情景作为键，概率数值在0到1之间、合计为1；"
-                "scenario_details必须与每个概率键同名：definition说明到目标时点的具体状态与情景边界；"
-                "conditions列2–4个可观察触发条件；rationale用2–4句说明为何赋予该相对概率、证据支持及不确定性，"
-                "并分别填有效evidence_ids/assumption_ids/simulation_ids作为依据，不得只重复情景标题。"
-                "若问题已有合适的outcomes也可沿用。概率是未经校准的主观情景分配，不是来源实测频率。"
-                "证据有限或review=blocked只需降低把握并写入limitations，不要因此拒绝给概率。")
+                "这是开放场景研究：已有证据时必须给出非null的probabilities，数值在0到1之间、合计为1。"
+                "先固定同一目标日期、研究范围和单一判定轴，再划分至少两个具名、互斥且覆盖主要可能性的终局；"
+                "按问题需要决定情景数量，用户明确要求三个时给三个。判定轴可用采用程度、完成状态等实际结果，不按时间轮次分组。"
+                "S1/S2等是同一条模拟轨迹的先后状态，可以同时发生，不能作为概率键、情景名或直接复制摘要充当终局定义。"
+                "scenario_details与概率键逐项同名：definition说明目标时点主体做法与关键变量状态，按统一判定轴区分边界；"
+                "conditions列2–4项驱动条件，说明重叠时的终局判定顺序。这些是驱动因素，不是彼此不同前提下的条件成功率。"
+                "probabilities是当前共同信息条件下各互斥终局的未经校准主观权重，不能将各自条件成功率归一化。"
+                "rationale用2–4句连接Round 0、已模拟行动交互和该终局为何更可能或更不可能；区分来源事实、模拟路径及剩余不确定性。"
+                "同一S可以支持多个终局，只在simulation_ids登记该情景文字实际用到的S；evidence_ids/assumption_ids同样对应实际依据。"
+                "若已有outcomes满足上述定义可沿用。概率不是来源实测频率；证据有限或review=blocked写入limitations，不因此拒绝概率。")
             if not evidence:
                 probability_instructions = "尚未取得来源，probabilities必须为null；说明需要补充什么资料，不编造概率。"
             instructions += (
-                "优先完成一份可读报告，解释每个场景的触发条件与证据依据。"
+                "优先完成一份可读报告：conclusion直接回答哪些现实做法可能改变、由谁推动、为何形成这些路径，不复述用户要求。"
+                "scenarios简述各条路径的主体行动与局势变化，并与scenario_details和概率键保持一致。"
+                "supporting/opposing分别解释具体事实或条件如何推动、阻碍某条路径；有H/S依据的机制明说是条件推演。"
+                "scenario_details.rationale使用S结果时明确‘在该假设/模拟路径下’；E只支持其实际记载的前提，不能将同段的S结果改写为已发生历史事实。"
+                "new_information列值得跟踪的具体行动、指标或规则变化，以及出现后会提高或降低哪条路径的相对概率。"
+                "limitations只简明说明会影响上述判断的实际缺口，不以笼统不确定性或‘没有完整原文’充当报告正文。"
                 "模型假设、模拟结果及被遮蔽的比例不是新增观测，不要声称其经过实测。"
                 "原文来源、发布日期未知及历史回看限制必须保留；审查意见作为限制披露。")
         if price_context:
@@ -1032,7 +1126,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 continue
             candidate = forecast.model_copy(deep=True)
             forecast.probability_basis = "evidence_only" if evidence_only else "full"
-            canonicalize_forecast_ids(forecast, evidence, world, simulation)
+            canonicalize_forecast_ids(forecast, evidence, world, simulation,
+                                      state.get("evidence_assessment"))
             if evidence_only:
                 # The evidence-only report cannot acquire new model assumptions.
                 # Keep evidence-backed prose, but remove references to the excluded branch.
@@ -1061,7 +1156,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                             full_instructions + "语言简洁。" + full_probability_instructions,
                         )
                         shadow.probability_basis = "full"
-                        canonicalize_forecast_ids(shadow, evidence, full_world, full_simulation)
+                        canonicalize_forecast_ids(shadow, evidence, full_world, full_simulation,
+                                                  state.get("evidence_assessment"))
                         ev_ids = {e.id for e in evidence}
                         as_ids = {a.id for a in full_world.assumptions}
                         sim_ids = {step.id for step in full_simulation}

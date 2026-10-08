@@ -63,10 +63,10 @@ def test_structural_retry_error_does_not_erase_earlier_rejected_candidate(tmp_pa
     question, retrieval = make_source(tmp_path)
     raw = candidate_from_source(retrieval.evidence[0])
     bad = deepcopy(raw["findings"][0]); bad["claim"] = "测试完成，收入提升99%。"
-    raw["findings"].append(bad)
+    raw["findings"] = [bad]
     model = mock_model([raw, ValueError("缺少quote")])
     result = assess_evidence(question, None, retrieval, model, tmp_path)
-    assert len(result.findings) == 1 and result.findings_validated
+    assert result.findings == [] and result.findings_validated
     assert len(result.rejected_findings) == 2
     assert "99" in result.rejected_findings[0].reason
     assert "缺少quote" in result.rejected_findings[1].reason

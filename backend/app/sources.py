@@ -1,4 +1,5 @@
 """Tool-owned evidence metadata. Models never create source URLs or hashes."""
+import asyncio
 import hashlib
 import html
 import threading
@@ -280,6 +281,24 @@ def retrieve_evidence(question: QuestionSpec, tasks, data_dir: Path):
                 has_body=bool(result.get("raw_content")), score=score, query_ids=[task.id], aliases=[alias],
                 metadata=metadata, published_at=published, updated_at=updated, event_at=event))
     candidates = select_candidates(buckets)
+    if config.BRAVE_SEARCH_API_KEY:
+        from .source_fetch import fetch_selected_bodies
+        pending = [c for c in candidates if not c.has_body]
+        fetched = asyncio.run(fetch_selected_bodies([c.url for c in pending]))
+        for candidate, (body, metadata) in zip(pending, fetched):
+            candidate.metadata["body_fetch"] = metadata
+            if body:
+                candidate.metadata["search_excerpt_hash"] = candidate.metadata["content_hash"]
+                candidate.text = body.replace("\r\n", "\n").replace("\r", "\n")
+                candidate.has_body = True
+                candidate.metadata["content_hash"] = hashlib.sha256(candidate.text.encode()).hexdigest()
+                final_url = metadata["final_url"]
+                candidate.aliases.append(SourceAlias(source_url=final_url, publisher=urlparse(final_url).hostname,
+                    metadata={"content_hash": candidate.metadata["content_hash"], "body_fetch": metadata}))
+        # Redirects/exact body duplicates may reveal aliases that snippets hid.
+        for candidate in candidates:
+            candidate.possible_same_source = []
+        candidates = group_sources(candidates)
     evidence = []
     for c in candidates:
         snapshot = save_snapshot(c.text, {"provider": "brave" if config.BRAVE_SEARCH_API_KEY else "tavily", "source_url": c.url, "title": c.title,

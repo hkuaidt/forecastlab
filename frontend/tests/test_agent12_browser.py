@@ -154,12 +154,12 @@ def test_filter_findings_by_premise_and_relation(page, app_url):
 
 def test_quote_highlight_keeps_emoji_offsets(page, app_url):
     inspect_view(page, app_url)
-    page.get_by_role("button", name="查看 E001 原文", exact=True).click()
+    page.get_by_role("button", name="查看已保存摘要 · E001", exact=True).click()
     expect(page.locator("mark")).to_have_text("计划🙂延期")
     expect(page.get_by_role("dialog")).to_be_visible()
     page.keyboard.press("Escape")
     expect(page.get_by_role("dialog")).to_have_count(0)
-    expect(page.get_by_role("button", name="查看 E001 原文", exact=True)).to_be_focused()
+    expect(page.get_by_role("button", name="查看已保存摘要 · E001", exact=True)).to_be_focused()
 
 
 def test_rejected_findings_not_in_valid_results(page, app_url):
@@ -180,20 +180,20 @@ def test_legacy_record_has_no_fabricated_framing(page, app_url):
 def test_source_limitations_visible(page, app_url):
     inspect_view(page, app_url)
     expect(page.get_by_text("只有搜索摘要，未取得正文", exact=True).first).to_be_visible()
-    page.get_by_role("button", name="查看 E001 原文", exact=True).click()
+    page.get_by_role("button", name="查看已保存摘要 · E001", exact=True).click()
     expect(page.get_by_role("dialog").get_by_text("发布时间未知", exact=True)).to_be_visible()
-    expect(page.get_by_role("dialog").get_by_text("正文已截断，不是完整原文", exact=True)).to_be_visible()
+    expect(page.get_by_role("dialog").get_by_text("保存文本有截断，不是完整原文", exact=True)).to_be_visible()
     expect(page.get_by_text("明确转载标记，尚待人工核查", exact=True)).to_be_visible()
 
 
 def test_mobile_findings_and_drawer_fit_viewport(page, app_url):
     page.set_viewport_size({"width": 390, "height": 844})
     inspect_view(page, app_url)
-    page.get_by_role("button", name="查看 E001 原文", exact=True).click()
+    page.get_by_role("button", name="查看已保存摘要 · E001", exact=True).click()
     expect(page.locator("mark")).to_have_text("计划🙂延期")
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     page.get_by_role("button", name="关闭来源原文", exact=True).click()
-    expect(page.get_by_role("button", name="查看 E001 原文", exact=True)).to_be_focused()
+    expect(page.get_by_role("button", name="查看已保存摘要 · E001", exact=True)).to_be_focused()
 
 
 
@@ -223,7 +223,7 @@ def test_source_hash_mismatch_blocks_highlight(page, app_url):
         "snapshot_hash": "changed-hash", "content_truncated": True, "passages": []})
     page.goto(app_url)
     navigate_page(page, "问题与证据")
-    page.get_by_role("button", name="查看 E001 原文", exact=True).click()
+    page.get_by_role("button", name="查看已保存摘要 · E001", exact=True).click()
     expect(page.get_by_role("alert")).to_have_text("原文哈希或引用位置不匹配，不能高亮引用。")
     expect(page.locator("mark")).to_have_count(0)
 

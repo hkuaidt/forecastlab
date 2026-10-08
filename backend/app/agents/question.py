@@ -24,8 +24,15 @@ model_inferred 表示从措辞推断的世界状态或因果前提，绝不冒�
 不能反问用户先提供这些研究结果，也不能为这些输出要求建立blocking clarification。
 “请分析/分别考虑/给出情景/明确条件和概率/列出证据”等任务指令不是世界事实，不能列入premises；
 “将怎样影响/是否会发生”等问句也不预设其影响或结果已经成立。仅提取句中另外明确断言的可核查背景事实。
-检索研究对象和真实问题的公开资料，不搜索“三个互斥情景、判定条件和概率”等输出格式要求；没有事实前提时使用background任务。
-最多3个检索任务，每个标注 purpose 和零起始 premise_indexes；方向可为 initial/challenge/alternative/background。
+retrieval_plan按以下结构生成，最多3条，每条query对应一个实际任务而非整个题目的综述：
+1. 先按用户明确列出的研究任务或环节分配query；明确三个任务时各一条。主体或工具名不能替代任务覆盖。
+2. 每条query聚焦一项实际任务或决策变量，结构为“具体研究术语 + 原始资料类型”；寻找已采取的行动与结果、实测边界或机构规则。
+3. 全球技术生态的query使用通行英文术语和research paper、experiment、official documentation、policy等资料词；本地制度问题使用当地机构与语言。“现状/影响/未来发展趋势”不是资料类型。
+4. 保留用户已回答范围中的工具名、任务名及其通行英文写法。purpose取initial/challenge/alternative/background，premise_indexes为零起始索引；没有事实前提时使用background。
+数学三任务的短正例：“AI mathematical conjectures research paper”“Lean theorem prover official documentation”“journal generative AI peer review policy”。其他题目替换为自身任务，不能照搬数学分类。
+alternative_directions写可比较的具体机制或利益冲突，只是待研究方向，不是新前提。只用问题中已有对象，不编造机构或事件。
+前提示例：“关注甲团队、乙厂商：它们能采取什么行动，哪些条件下产生不同结果？”→premises=[]，这是范围和问句。
+“甲团队已经发布工具，请比较各方行动”→只提取“甲团队已经发布工具”，不提取比较任务。
 只输出 FramingCandidate，不生成草稿编号、状态、确认记录或外部证据。"""
 
 
@@ -98,6 +105,18 @@ _SCENARIO_OUTPUT_REQUEST = re.compile(
 )
 _QUESTION_FORM = re.compile(r"怎样|如何|是否|能否|会不会|何时|[？?]")
 _ASSERTION_LEAD = re.compile(r"既然|因为|由于|鉴于|假设|已经|已(?:取得|完成|发布|发生|证明|宣布)|曾经")
+_QUESTION_WORD = re.compile(r"怎样|如何|是否|能否|会不会|何时|什么|哪些|为何|谁")
+_ACTOR_SCOPE_LIST = re.compile(r"^(?:请|重点|主要)?关注[^。！？?!：:]*、[^。！？?!：:]*[:：]$")
+_SCOPE_ASSERTION = re.compile(r"增加|减少|增长|下降|上升|停止|完成|宣布|发布|通过|退出|倒闭|造假")
+
+
+def _pure_research_question(text: str) -> bool:
+    # Only discard an explicit question when every clause is interrogative.
+    # A mixed sentence such as "预算增加20%，将如何调整？" retains its fact.
+    if not text.endswith(("？", "?")) or _ASSERTION_LEAD.search(text):
+        return False
+    clauses = [part.strip() for part in re.split(r"[，,；;。：:]", text.rstrip("？?")) if part.strip()]
+    return bool(clauses) and all(_QUESTION_WORD.search(part) for part in clauses)
 
 
 def research_instruction_premise(premise) -> bool:
@@ -106,6 +125,16 @@ def research_instruction_premise(premise) -> bool:
     if re.match(r"^(?:研究)?范围(?:限定|界定|设定)?(?:为|是|[:：])", span):
         return True
     literal = _statement_text(content) in _statement_text(span)
+    scope_parts = re.split(r"(?<=[：:])", span, maxsplit=1)
+    scope, following = scope_parts[0], scope_parts[1].strip() if len(scope_parts) > 1 else ""
+    if (_ACTOR_SCOPE_LIST.fullmatch(scope)
+            and _statement_text(content) in {
+                _statement_text(scope).rstrip("：:"), _statement_text(span)}
+            and not _ASSERTION_LEAD.search(scope) and not _SCOPE_ASSERTION.search(scope)
+            and (not following or _pure_research_question(following))):
+        return True
+    if _pure_research_question(content):
+        return True
     if literal:
         # "研究投入增加20%" is a factual assertion despite starting with a
         # word that can also be a verb. Only clear task/output requests override

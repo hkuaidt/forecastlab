@@ -1,0 +1,63 @@
+{
+  "raw_question": "以当前公开资料为起点，推演至2027年12月31日：AI工具会怎样改变数学科研中的猜想提出、证明检验和论文评审？关注科研团队、模型厂商、Lean等形式化验证社区及期刊与资助机构：它们能采取什么具体行动，行动如何相互影响，哪些条件下会形成不同结果？范围为全球数学科研生态，不限定单一产品。",
+  "proposed_spec": {
+    "question": "以当前公开资料为起点，推演至2027年12月31日：AI工具会怎样改变数学科研中的猜想提出、证明检验和论文评审？关注科研团队、模型厂商、Lean等形式化验证社区及期刊与资助机构：它们能采取什么具体行动，行动如何相互影响，哪些条件下会形成不同结果？范围为全球数学科研生态，不限定单一产品。",
+    "as_of": "2026-10-08T17:42:43.628043Z",
+    "resolve_by": null,
+    "resolution_rule": "",
+    "resolution_source": null,
+    "mode": "scenario",
+    "user_assumptions": []
+  },
+  "premises": [
+    {
+      "content": "关注科研团队、模型厂商、Lean等形式化验证社区及期刊与资助机构。",
+      "origin": "user_explicit",
+      "source_input_id": "I001",
+      "original_span": "关注科研团队、模型厂商、Lean等形式化验证社区及期刊与资助机构：",
+      "rationale": "用户明确指出需要关注的主体包括科研团队、模型厂商、Lean等形式化验证社区及期刊与资助机构。",
+      "replaces_id": null,
+      "id": "P001",
+      "user_review": "pending",
+      "treatment": "to_verify"
+    },
+    {
+      "content": "它们能采取什么具体行动，行动如何相互影响，哪些条件下会形成不同结果？",
+      "origin": "user_explicit",
+      "source_input_id": "I001",
+      "original_span": "它们能采取什么具体行动，行动如何相互影响，哪些条件下会形成不同结果？",
+      "rationale": "用户明确指出需要分析这些主体可能采取的具体行动及其相互影响，以及形成不同结果的条件。",
+      "replaces_id": null,
+      "id": "P002",
+      "user_review": "pending",
+      "treatment": "to_verify"
+    }
+  ],
+  "alternative_directions": [
+    "科研团队可能开发新的AI工具来辅助数学猜想的提出。",
+    "模型厂商可能推出专门针对数学证明的AI验证工具。",
+    "Lean等形式化验证社区可能与AI工具结合，提高证明的自动化程度。",
+    "期刊与资助机构可能制定新的评审标准以适应AI工具的使用。",
+    "不同主体之间的合作与竞争可能影响AI工具在数学科研中的应用程度。"
+  ],
+  "retrieval_plan": [
+    {
+      "id": "R001",
+      "query": "AI工具在数学猜想提出中的应用现状及未来发展趋势",
+      "purpose": "initial",
+      "target_premise_ids": []
+    },
+    {
+      "id": "R002",
+      "query": "模型厂商在数学证明检验中的AI工具开发情况",
+      "purpose": "initial",
+      "target_premise_ids": []
+    },
+    {
+      "id": "R003",
+      "query": "Lean等形式化验证社区与AI工具的结合情况及影响",
+      "purpose": "initial",
+      "target_premise_ids": []
+    }
+  ]
+}

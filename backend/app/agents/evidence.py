@@ -8,34 +8,24 @@ from ..llm import BudgetExceeded, ModelCancelled
 from ..evidence_quality import build_quality_profile
 from ..cutoff_gaps import is_future_outcome_gap
 
-PROMPT = """只依据提供的原文段落整理证据，不能用模型记忆补来源或结论。
-clarification_answers是用户确认的研究范围/任务说明，仅用于理解问题，不是E外部证据或需要再次核查的P事实；不得用它证明来源事实。
-每个finding必须有来源E编号、快照hash、段落编号和逐字原文quote。若存在活动前提P，可在target_premise_ids中指向相关P；
-若没有活动前提，target_premise_ids必须为空，finding直接服务于研究问题，不得虚构P编号。
-finding.claim 必须是所引 quote 可以直接蕴含的保守释义，只写 quote 本身明确表达的事实。
-AI/LLM可作为通用模型类别词，不要求原句出现同一英文缩写；具体模型、机构和任务范围仍须与原句一致，不能把Claude单项结果泛化为所有AI。
-finding.claim用完整句说明主体、任务和观测结果，limitation用1–2句解释适用范围、未验证部分及其对研究问题的影响。
-quote 没写出的发布日期、年份、机构/产品/项目名称、publisher/source title、文档或提交来源、问题中的用途、因果、趋势、评价、缺失事实或“因此/说明/构成/表明”的解释，
-不得塞进 claim；需要说明局限时写进 limitation，不能把未核验事实移入 summary。即使这些信息出现在证据 metadata/title/publisher 里，只要 exact quote 没写，就不能补进 claim。
-例如 quote 只有“The agency ... April 1”时 claim 可写“目标发射时间不早于4月1日”，不可补“NASA”；quote 只有“... on Jan. 16”时不可补年份；
-quote 只有“Virtual Medal Table: United States 39 gold.”时不可补“Gracenote”。裸表格行只有日期和数值时，不可擅自补“收盘/指数/价格”等口径；
-quote 只有简称/缩写时，不可补全成 quote 未出现的英文实体全名；quote 外的标题、章节名（如 Expected）、“官方”身份、固定提交 provenance 都不能进入 claim。
-标题/截断片段只能按其字面内容生成 claim，不能从“没提到”推断“未发生”。
-只提供了部分段落；没选中或没引用某主题不等于该来源没有相关内容，summary也不得作这种推断。
-客户评价/Quote不是普遍性能测量：claim必须明确“该客户在所述工作流中反馈”，并保留任务/场景限制；
-quote要包含该评价介绍使用场景的首句，不能只摘最后的性能数字。不能把发布时间当成实验完成日期。
-多个 citations 只有在它们共同直接支持 claim 时才能合并到同一个 finding。
-关系属于这个发现与前提，不属于整个网站；同一来源可以支持一项前提、挑战另一项。
-不要因为检索任务叫challenge就把搜到的材料标成反证。没有可靠反证时不编造对立观点。
-保留摘要/正文身份、日期未知、同源转载、未来计划等限制；计划不是实际发生的事实。
-对前提为真与在该情景条件下讨论做区别，不将待核查前提当事实。
-冲突用零起始finding_indexes关联双方，比较时间、指标和地区；口径不同不一定真矛盾。
-缺口仅列信息截点前可能取得却未提供的资料；未来实际结果尚未发生不是证据缺口。
-summary概括资料覆盖情况，不额外提出缺少引文的事实。不要输出概率。
-输出要克制：优先保留最多8条对问题或活动前提最有信息量的finding；不要按来源机械生成一条finding，
-多个来源重复表达同一事实时合并或只保留最直接、最权威的一项。conflicts最多3条，gaps最多4条；
-每个finding优先1条直接引文，只有共同支持同一claim时才增加第2条citation。
-不能引用未给出的段落，也不能把不相邻文字拼为一句引文；不输出字符偏移。"""
+PROMPT = """先识别用户问题的不同任务，从全部来源中为每个任务优先选择一条能回答具体事实问题的发现，再补真正改变判断的边界；材料不足的任务只写gap，不用其他任务的资料替代。
+最多8条finding是上限，不是目标数量；不顺序逐源逐段总结，不为技术术语或同一机制的实现细节单列发现。同源中有不同决策价值的事实可以保留，不设每源硬配额。
+只依据提供的原文段落，不用模型记忆补事实。先选择能独立支持一项具体判断的完整原文quote，再生成finding.claim。
+每项必须给E编号、快照hash、paragraph_id和逐字quote；不能引用未给段落、拼接不相邻原文，不输出字符偏移。
+finding.claim是quote可以直接蕴含的保守释义，只写quote 本身明确表达的事实；完整说明谁已做了什么、任务范围与结果。
+实体、日期、数值、机构身份和因果均须由当前quote直接支持；标题/publisher等元数据不得塞进 claim。裸表格行不能补指标口径，固定提交信息不能补成原文事实。
+主体仅在另一段时补直接citation或使用当前quote原称呼。AI/LLM可作通用类别词，具体模型或单项结果不能泛化为所有AI。
+来源的预测、作者观点或未来展望须写成“该文认为/预计……”并保留条件，不能改写为当前现状、实际效果；计划不是已发生事件。
+提供的是已保存来源的选段；保留body/snippet身份、日期未知、转载与历史回看限制。不能从“没提到”推断“未发生”，未选段落不等于来源不存在相关内容。
+“没有完整原文”不能代替对已有内容的分析；有正文的来源不能说成只有摘要。summary只概括覆盖，不增加无引文事实。
+客户评价/Quote须归属该客户及工作流，不冒充普遍测量；quote保留介绍场景的首句，不只截性能数字。
+limitation只写该条具体的支持范围、缺失变量或对主体选择的限制；claim已明确且无具体缺口时可留空。
+如需解释机制，这部分是AI解读而非原文事实，须用“若…则…”或“据此推测…”标明推断，不能新增未经证实的事件。
+共性缺口只在gaps写一次，不给每条复制“资料未提供具体时间或细节，因此无法确定影响程度”。gap指明缺哪项可取得的记录以及影响哪个任务，未来实际结果尚未发生不是资料缺口。
+clarification_answers是用户确认的研究范围，不是E证据或需要重查的P事实。只向活动前提填target_premise_ids；无活动前提时为空，不虚构P。
+relation描述发现与前提的关系，不描述整个网站；查询purpose=challenge不自动使结果成为反证，无反证不凑数。
+冲突用零起始finding_indexes关联，比较时间、指标和地区；口径不同不必是真矛盾。conflicts最多3条，gaps最多4条，不输出概率。
+每finding优先一条完整直接引文，仅在共同支持同一claim时增加第二条citation；保留必要原文，不为短输出删掉主语、条件或范围。"""
 
 
 class EvidenceStageError(RuntimeError):
@@ -220,23 +210,44 @@ def _source_gaps(retrieval):
     return gaps
 
 
+def _deduplicate_gaps(gaps):
+    """Stable exact-meaning de-duplication; never merge different gap scopes."""
+    result, seen = [], set()
+    for gap in gaps:
+        missing = re.sub(r"\s+", " ", gap.missing).strip()
+        key = (missing, gap.cause, gap.topic,
+               tuple(sorted(set(gap.target_premise_ids))), tuple(sorted(set(gap.attempted_query_ids))))
+        if key not in seen:
+            seen.add(key)
+            result.append(gap.model_copy(update={"missing": missing}))
+    return result
+
+
 def _compatibility(assessment, retrieval=None):
+    assessment.gap_details = _deduplicate_gaps(assessment.gap_details)
     if retrieval is not None:
         assessment.quality_profile = build_quality_profile(retrieval, assessment)
     assessment.conflicts = [f"{'已解释' if c.status == 'resolved' else '未解决'}：{c.issue}；{c.scope_comparison}；{c.explanation}" for c in assessment.conflict_details]
-    assessment.gaps = [g.missing for g in assessment.gap_details]
+    # Display text may repeat across distinct structured scopes; keep those
+    # scopes in gap_details while showing each exact normalized sentence once.
+    assessment.gaps = list(dict.fromkeys(g.missing for g in assessment.gap_details))
     return assessment
 
 
-def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAssessment:
+def assess_evidence(question, framing, retrieval, model, data_dir, *, on_progress=None) -> EvidenceAssessment:
     if retrieval.status == "failed":
         a = _compatibility(EvidenceAssessment(summary="取证全部失败，请检查检索配置或创建新运行。",
             retrieval_log=retrieval.retrieval_log, exclusions=retrieval.exclusions, gap_details=_source_gaps(retrieval)), retrieval)
         raise EvidenceStageError(retrieval, a)
     good_sources = []
     terms = [question.question, question.resolution_rule]
+    # Re-ranking must retain the precise terms that found the source, including
+    # user-confirmed scope; these guide selection and do not become evidence.
+    terms += [log.query for log in retrieval.retrieval_log]
     if framing:
         terms += [p.content for p in framing.premises if p.user_review != "rejected"] + framing.alternative_directions
+        terms += [task.query for task in framing.retrieval_plan]
+        terms += [c.answer for c in framing.clarifications if c.status == "resolved" and c.answer]
     for original in retrieval.evidence:
         e = original.model_copy(deep=True)
         try:
@@ -266,6 +277,13 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
         "retrieval_log": [x.model_dump() for x in retrieval.retrieval_log]}
     candidate = None
     rejection_history = []
+
+    def publish_progress():
+        if on_progress is not None:
+            # A detached progress snapshot cannot mutate the next attempt, and
+            # does not mark the evidence stage as completed.
+            on_progress(_compatibility(assessment.model_copy(deep=True), retrieval))
+
     for attempt in range(2):
         try:
             candidate = model.complete("evidence12", payload, AssessmentCandidate, PROMPT, attempt_limit=1)
@@ -279,7 +297,10 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
             assessment.gap_details = _source_gaps(retrieval) + gaps
             rejection_history.extend(rejected)
             assessment.rejected_findings = list(rejection_history)
-            if not rejected:
+            publish_progress()
+            # Preserve usable, quote-checked findings instead of regenerating the
+            # entire source package for unrelated rejected candidates.
+            if findings or not rejected:
                 break
             payload["validation_feedback"] = [r.reason for r in rejected]
         except ModelCancelled:
@@ -287,13 +308,18 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
         except BudgetExceeded as exc:
             if candidate is None:
                 assessment.summary = "证据分析额度不足，已保存来源与检索日志。"
+                publish_progress()
                 raise EvidenceStageError(retrieval, _compatibility(assessment, retrieval)) from exc
             assessment.gap_details.append(GapDetail(missing="额度不足，未再修复无效发现", cause="validation_failed"))
+            publish_progress()
             break
         except (ValueError, RuntimeError) as exc:
             rejection = RejectedFinding(candidate={}, reason=f"第{attempt+1}次结构输出无效：{str(exc)[:500]}")
             rejection_history.append(rejection)
             assessment.rejected_findings = list(rejection_history)
+            if not assessment.findings_validated:
+                assessment.summary = f"已保存{len(good_sources)}条来源；当前证据候选未通过校验，拒绝原因已记录。"
+            publish_progress()
             payload["validation_feedback"] = rejection.reason
     if not assessment.findings_validated:
         assessment.summary = f"已保存{len(good_sources)}条可读取来源，但证据分析输出未通过校验；不能据此认定来源没有相关内容。"

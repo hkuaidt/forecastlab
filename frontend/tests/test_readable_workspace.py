@@ -56,10 +56,10 @@ def test_canvas_is_readable_and_node_reader_shows_complete_stage_results(page, a
     page.get_by_role("button", name="收起阅读区", exact=True).click()
     page.get_by_role("button", name="主体行动：合成研究团队", exact=True).click()
     expect(page.locator(".stage-action").get_by_text(run["actions"][0]["rationale_summary"], exact=True)).to_be_visible()
-    expect(page.get_by_text("将不确定条件明确列入后续研究", exact=True)).to_be_visible()
+    expect(page.locator(".stage-action").get_by_text("将不确定条件明确列入后续研究", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="行动适用条件", exact=True)).to_be_visible()
     for condition in run["actions"][0]["conditions"]:
-        expect(page.get_by_text(condition, exact=True)).to_be_visible()
+        expect(page.locator(".stage-action").get_by_text(condition, exact=True)).to_be_visible()
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
 
 
@@ -86,7 +86,7 @@ def test_world_and_actor_finding_references_expand_to_saved_quotes_and_sources(p
         screenshots = Path(__file__).resolve().parents[2] / "docs/agent12/validation-artifacts/screenshots"
         finding.scroll_into_view_if_needed()
         page.screenshot(path=str(screenshots / f"finding-reference-{width}.png"))
-    finding.get_by_role("button", name="E001 · 来源 E001 ↗", exact=True).click()
+    finding.get_by_role("button", name="E001 · 来源 E001 · 查看已保存摘要 ↗", exact=True).click()
     expect(page.get_by_role("dialog")).to_be_visible()
     expect(page.get_by_role("dialog")).to_contain_text(source["excerpt"])
 
@@ -148,7 +148,7 @@ def test_report_and_scenarios_keep_expandable_e_h_s_references(page, app_url):
     expect(section.locator(".record-references")).to_contain_text("E001")
     section.get_by_text("模型假设 H001 · 协作资源可能保持稳定", exact=True).click()
     expect(section.get_by_text("这是用于比较路径的条件假设，不是来源事实。", exact=True)).to_be_visible()
-    section.get_by_text("模拟结果 S1 · 第 1 轮", exact=True).click()
+    section.get_by_text("模拟状态变化 S1 · 第 1 轮", exact=True).click()
     expect(section.get_by_text("核查提升可追溯性，但不消除不确定性。", exact=True)).to_be_visible()
 
 

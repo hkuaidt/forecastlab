@@ -54,13 +54,13 @@ def test_one_source_supports_and_challenges_different_premises(tmp_path, clear_f
     assert model.calls[0][1]["question_framing"]["draft_id"] == frame.draft_id
 
 
-def test_second_invalid_result_is_excluded_and_logged(tmp_path, clear_framing, mock_model):
+def test_partial_valid_result_excludes_invalid_without_whole_package_retry(tmp_path, clear_framing, mock_model):
     m = module(); q, frame, retrieval, good = setup(tmp_path, clear_framing)
     good["findings"][0]["citations"][0]["quote"] = "编造的引文"
     model = mock_model([good, good]); assessment = m.assess_evidence(q, frame, retrieval, model, tmp_path)
     assert len(assessment.findings) == 1
     assert assessment.rejected_findings[0].reason
-    assert model.call_count == 2
+    assert model.call_count == 1
     assert any(g.cause == "validation_failed" for g in assessment.gap_details)
 
 
@@ -234,11 +234,12 @@ def test_exact_quote_boundary_feedback_triggers_repair(tmp_path, clear_framing, 
     q, frame, retrieval, good = setup(tmp_path, clear_framing)
     bad = deepcopy(good)
     bad["findings"][0]["claim"] = "2026 年公告表示单元测试已完成"
+    bad["findings"][1]["citations"][0]["quote"] = "未提供的兼容记录"
     model = mock_model([bad, good])
     assessment = m.assess_evidence(q, frame, retrieval, model, tmp_path)
     assert model.call_count == 2
     assert len(assessment.findings) == 2
-    assert len(assessment.rejected_findings) == 1
+    assert len(assessment.rejected_findings) == 2
     assert "2026" in assessment.rejected_findings[0].reason
     assert "validation_feedback" in model.calls[1][1]
     assert any("exact-quote claim boundary" in x for x in model.calls[1][1]["validation_feedback"])

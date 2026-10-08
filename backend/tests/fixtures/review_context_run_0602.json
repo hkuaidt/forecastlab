@@ -1,0 +1,1751 @@
+{
+  "payload": {
+    "question": {
+      "id": "Q-f85e8c38",
+      "question": "以当前公开资料为起点，推演至2027年12月31日：AI工具会怎样改变数学科研中的猜想提出、证明检验和论文评审？关注科研团队、模型厂商、Lean等形式化验证社区及期刊与资助机构：它们能采取什么具体行动，行动如何相互影响，哪些条件下会形成不同结果？范围为全球数学科研生态，不限定单一产品。",
+      "as_of": "2026-10-08T17:42:43.628043Z",
+      "resolve_by": null,
+      "outcomes": [
+        "是",
+        "否"
+      ],
+      "resolution_rule": "",
+      "resolution_source": null,
+      "mode": "scenario",
+      "user_assumptions": []
+    },
+    "evidence": [
+      {
+        "id": "E001",
+        "source_url": "https://zhuanlan.zhihu.com/p/27201248957",
+        "file_id": null,
+        "title": "借助人工智能，数学家解决世界重大猜想是否正在加速到来？ - 知乎",
+        "publisher": "zhuanlan.zhihu.com",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.833057Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "snippet_only",
+        "source_group": "source:6f781a71c060fdd0",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "snippet",
+        "source_kind_basis": "",
+        "snapshot_hash": "85be9ddc348a0d5ef14334d2e2e7884ac6f44ca464c8594b67956bc3e2968a98",
+        "content_truncated": false,
+        "query_ids": [
+          "R001"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://zhuanlan.zhihu.com/p/27201248957",
+            "publisher": "zhuanlan.zhihu.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 1.0,
+              "content_hash": "85be9ddc348a0d5ef14334d2e2e7884ac6f44ca464c8594b67956bc3e2968a98"
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 98,
+            "text": ">根据和，DeepMind已经成功帮助数学家发现了新的猜想，比如在拓扑学和表示论中。 这表明AI目前更多是辅助发现新猜想，而不仅仅是解决现有难题。 提到DeepMind破解了“纽结”猜想，说...",
+            "snapshot_hash": "85be9ddc348a0d5ef14334d2e2e7884ac6f44ca464c8594b67956bc3e2968a98"
+          }
+        ],
+        "excerpt": ">根据和，DeepMind已经成功帮助数学家发现了新的猜想，比如在拓扑学和表示论中。 这表明AI目前更多是辅助发现新猜想，而不仅仅是解决现有难题。 提到DeepMind破解了“纽结”猜想，说..."
+      },
+      {
+        "id": "E002",
+        "source_url": "https://zhuanlan.zhihu.com/p/640656668",
+        "file_id": null,
+        "title": "大模型帮陶哲轩解题、证明数学定理：数学真要成为首个借助AI实现突破的学科了？ - 知乎",
+        "publisher": "zhuanlan.zhihu.com",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.835164Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "snippet_only",
+        "source_group": "source:06ac777897918b15",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "snippet",
+        "source_kind_basis": "",
+        "snapshot_hash": "fc1fdd5cdc7dd4925193e12dac8f501d5fe94ce9d050eff51d3ccd917706b7e4",
+        "content_truncated": false,
+        "query_ids": [
+          "R002"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://zhuanlan.zhihu.com/p/640656668",
+            "publisher": "zhuanlan.zhihu.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 1.0,
+              "content_hash": "fc1fdd5cdc7dd4925193e12dac8f501d5fe94ce9d050eff51d3ccd917706b7e4"
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 193,
+            "text": "巧合的是，在同一天，OpenAI 也展示了一项重要成果：他们开发的神经定理证明器成功解出了两道国际奥数题。这一成果是在微软打磨了多年的数学 AI——Lean 的基础上完成的。Lean 于 2013 年推出，数学家可以把数学公式转换成代码，再输入到 Lean 中，让程序来验证定理是否正确。OpenAI 的成功表明，AI 不仅可以用于解决编程等应用学科的问题，还能用来攻克数学等自然学科。",
+            "snapshot_hash": "fc1fdd5cdc7dd4925193e12dac8f501d5fe94ce9d050eff51d3ccd917706b7e4"
+          }
+        ],
+        "excerpt": "巧合的是，在同一天，OpenAI 也展示了一项重要成果：他们开发的神经定理证明器成功解出了两道国际奥数题。这一成果是在微软打磨了多年的数学 AI——Lean 的基础上完成的。Lean 于 2013 年推出，数学家可以把数学公式转换成代码，再输入到 Lean 中，让程序来验证定理是否正确。OpenAI 的成功表明，AI 不仅可以用于解决编程等应用学科的问题，还能用来攻克数学等自然学科。"
+      },
+      {
+        "id": "E003",
+        "source_url": "https://blog.hotdry.top/posts/2026/02/21/lean-4-theorem-prover-architecture-ai-verification/",
+        "file_id": null,
+        "title": "Lean 4定理证明器架构解析：面向AI代码验证的工程优势与实践 | Hotdry Blog",
+        "publisher": "blog.hotdry.top",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.836538Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "secondary",
+        "source_group": "source:8197a6d6061d3543",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "body",
+        "source_kind_basis": "",
+        "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c",
+        "content_truncated": false,
+        "query_ids": [
+          "R003"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://blog.hotdry.top/posts/2026/02/21/lean-4-theorem-prover-architecture-ai-verification/",
+            "publisher": "blog.hotdry.top",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 1.0,
+              "content_hash": "248bb0cef920de17c43ff9602c363971589445c03e8af6b7f4db704960e323f7"
+            }
+          },
+          {
+            "source_url": "https://blog.hotdry.top/posts/2026/02/21/lean-4-theorem-prover-architecture-ai-verification/",
+            "publisher": "blog.hotdry.top",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "content_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c",
+              "body_fetch": {
+                "status": "success",
+                "final_url": "https://blog.hotdry.top/posts/2026/02/21/lean-4-theorem-prover-architecture-ai-verification/",
+                "redirects": [],
+                "http_status": 200,
+                "content_type": "text/html",
+                "extraction": "article_or_main",
+                "response_bytes": 18029,
+                "transport": "direct_pinned_public_ip",
+                "fetched_at": "2026-10-08T17:44:18.515906+00:00",
+                "attempted_at": "2026-10-08T17:44:18.361034+00:00"
+              }
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000007",
+            "start": 281,
+            "end": 378,
+            "text": "Lean 4 的设计哲学遵循一个核心原则：将 “聪明” 的自动化机制全部置于内核之外，而让内核保持尽可能小且可信。这一架构思路直接继承了经典定理证明器的设计经验，同时在实现层面进行了现代化重构。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000010",
+            "start": 719,
+            "end": 924,
+            "text": "内核与类型检查器是 Lean 4 可信计算基的核心。它实现了归纳构造演算的变体，负责验证项是否具有良好的类型，并强制执行定义相等性、宇宙层次和归纳规则。与传统证明助手相比，Lean 4 的内核刻意保持了精简 —— 所有复杂的证明搜索、自动化启发式和启发式优化都运行在内核之外。这种设计使得内核的正确性验证成为可实现的目標：目前已有项目在形式化 Lean 4 内核的元理论，以证明实现正确地实现了预期的类型系统。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000011",
+            "start": 925,
+            "end": 1096,
+            "text": "运行时与编译器为整个系统提供执行能力。Lean 4 将代码编译为基于寄存器的字节码虚拟机，用于交互式工作和策略执行；同时提供 LLVM 和 C 后端，将计算密集型代码编译为本地机器码。更为关键的是，Lean 4 采用了 “自托管” 实现策略 —— 编译器本身使用 Lean 编写，这不仅证明了语言的实用性，也使得语言本身成为形式化验证的对象。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000014",
+            "start": 1197,
+            "end": 1400,
+            "text": "例如，当开发者声明一个 “此函数永不除零” 的属性时，这不再是一条需要额外检查的注释，而是一个必须满足的类型约束。函数必须 inhabit 这个类型 —— 也就是说，编译器会强制保证该属性在所有可能的输入下都成立。这种表达能力的提升对于安全关键系统的形式化验证具有变革性意义：在航空电子设备和医疗设备的固件验证中，形式化方法已经被强制要求；而 Lean 4 将类似的严格性带入了一个现代化、可编程的环境中。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000018",
+            "start": 1621,
+            "end": 1780,
+            "text": "首先，策略代码享有与普通代码相同的类型安全保证。开发者在编写证明自动化时不会因为使用独立的策略语言而失去类型检查的保护。其次，元编程框架提供了统一的 API 访问环境、本地上下文和内核操作，使得自定义策略的开发变得系统化。开发者可以实现重写框架、决策程序或基于搜索的自动化，并将它们编译为字节码或本地代码以获得高性能。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000022",
+            "start": 2070,
+            "end": 2204,
+            "text": "规格与模型层是基础。开发团队需要在 Lean 4 中编写形式化规格，包括前后置条件、不变量、协议属性或安全约束。已有大量可复用的验证库可供利用，例如 mathlib 和专用验证库，这使得 AI 和工程师可以在一个丰富的、预形式化的环境中工作，而非从零开始构建所有规格。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000024",
+            "start": 2348,
+            "end": 2493,
+            "text": "证明搜索与修复循环是 AI 系统的核心。AI 通过策略或项模式提出证明，内核检查其正确性；如果类型检查失败，AI 系统获取精确的反馈并迭代改进。UlamAI Prover 等开放系统已经展示了这种架构的可行性 —— 它们结合 LLM 引导的推理与 Lean 4 验证，产生可机器检查的证明。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000032",
+            "start": 3132,
+            "end": 3136,
+            "text": "参考资料",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          },
+          {
+            "paragraph_id": "B000037",
+            "start": 3382,
+            "end": 3401,
+            "text": "内容声明：本文无广告投放、无付费植入。",
+            "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c"
+          }
+        ],
+        "excerpt": "Lean 4 的设计哲学遵循一个核心原则：将 “聪明” 的自动化机制全部置于内核之外，而让内核保持尽可能小且可信。这一架构思路直接继承了经典定理证明器的设计经验，同时在实现层面进行了现代化重构。\n\n内核与类型检查器是 Lean 4 可信计算基的核心。它实现了归纳构造演算的变体，负责验证项是否具有良好的类型，并强制执行定义相等性、宇宙层次和归纳规则。与传统证明助手相比，Lean 4 的内核刻意保持了精简 —— 所有复杂的证明搜索、自动化启发式和启发式优化都运行在内核之外。这种设计使得内核的正确性验证成为可实现的目標：目前已有项目在形式化 Lean 4 内核的元理论，以证明实现正确地实现了预期的类型系统。\n\n运行时与编译器为整个系统提供执行能力。Lean 4 将代码编译为基于寄存器的字节码虚拟机，用于交互式工作和策略执行；同时提供 LLVM 和 C 后端，将计算密集型代码编译为本地机器码。更为关键的是，Lean 4 采用了 “自托管” 实现策略 —— 编译器本身使用 Lean 编写，这不仅证明了语言的实用性，也使得语言本身成为形式化验证的对象。\n\n例如，当开发者声明一个 “此函数永不除零” 的属性时，这不再是一条需要额外检查的注释，而是一个必须满足的类型约束。函数必须 inhabit 这个类型 —— 也就是说，编译器会强制保证该属性在所有可能的输入下都成立。这种表达能力的提升对于安全关键系统的形式化验证具有变革性意义：在航空电子设备和医疗设备的固件验证中，形式化方法已经被强制要求；而 Lean 4 将类似的严格性带入了一个现代化、可编程的环境中。\n\n首先，策略代码享有与普通代码相同的类型安全保证。开发者在编写证明自动化时不会因为使用独立的策略语言而失去类型检查的保护。其次，元编程框架提供了统一的 API 访问环境、本地上下文和内核操作，使得自定义策略的开发变得系统化。开发者可以实现重写框架、决策程序或基于搜索的自动化，并将它们编译为字节码或本地代码以获得高性能。\n\n规格与模型层是基础。开发团队需要在 Lean 4 中编写形式化规格，包括前后置条件、不变量、协议属性或安全约束。已有大量可复用的验证库可供利用，例如 mathlib 和专用验证库，这使得 AI 和工程师可以在一个丰富的、预形式化的环境中工作，而非从零开始构建所有规格。\n\n证明搜索与修复循环是 AI 系统的核心。AI 通过策略或项模式提出证明，内核检查其正确性；如果类型检查失败，AI 系统获取精确的反馈并迭代改进。UlamAI Prover 等开放系统已经展示了这种架构的可行性 —— 它们结合 LLM 引导的推理与 Lean 4 验证，产生可机器检查的证明。\n\n参考资料\n\n内容声明：本文无广告投放、无付费植入。"
+      },
+      {
+        "id": "E004",
+        "source_url": "https://baike.baidu.com/item/Lean%E8%AF%AD%E8%A8%80/67569508",
+        "file_id": null,
+        "title": "Lean语言_百度百科",
+        "publisher": "baike.baidu.com",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.839186Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "snippet_only",
+        "source_group": "source:6b82756add7570d9",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "snippet",
+        "source_kind_basis": "",
+        "snapshot_hash": "5ca4186b325ccb9a50e7f40faebb2e33b628fff7a3982703e3dd98386cb4800b",
+        "content_truncated": false,
+        "query_ids": [
+          "R003"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://baike.baidu.com/item/Lean%E8%AF%AD%E8%A8%80/67569508",
+            "publisher": "baike.baidu.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 0.92,
+              "content_hash": "5ca4186b325ccb9a50e7f40faebb2e33b628fff7a3982703e3dd98386cb4800b"
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 246,
+            "text": "在社区与资金支持方面，旨在将所有数学内容形式化的项目获得了超过1000万美元的资金支持 [4]。 · 在商业应用与初创生态方面，基于Lean语言的形式化验证技术开始应用于AI系统和金融领域，推动了相关初创公司的发展。例如，初创公司Axiom利用Lean开发AI数学家系统，其技术可服务于对冲基金和量化交易公司，并获得了投资 [12]。2025年12月，Axiom核心系统AxiomProver在普特南数学竞赛中完成全部12道试题并取得满分。2026年3月，Axiom完成2亿美元A轮融资，估值",
+            "snapshot_hash": "5ca4186b325ccb9a50e7f40faebb2e33b628fff7a3982703e3dd98386cb4800b"
+          }
+        ],
+        "excerpt": "在社区与资金支持方面，旨在将所有数学内容形式化的项目获得了超过1000万美元的资金支持 [4]。 · 在商业应用与初创生态方面，基于Lean语言的形式化验证技术开始应用于AI系统和金融领域，推动了相关初创公司的发展。例如，初创公司Axiom利用Lean开发AI数学家系统，其技术可服务于对冲基金和量化交易公司，并获得了投资 [12]。2025年12月，Axiom核心系统AxiomProver在普特南数学竞赛中完成全部12道试题并取得满分。2026年3月，Axiom完成2亿美元A轮融资，估值"
+      },
+      {
+        "id": "E005",
+        "source_url": "https://i-newcar.com/index.php?a=index&aid=4545&c=View&m=home",
+        "file_id": null,
+        "title": "DeepSeek-Prover-V2 革新数学推理：开源模型链接直觉与形式证明，突破定理自动化验证瓶颈_牛喀网-具身智能开发者生态",
+        "publisher": "i-newcar.com",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.840516Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "secondary",
+        "source_group": "source:ade85c014f061200",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "body",
+        "source_kind_basis": "",
+        "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48",
+        "content_truncated": false,
+        "query_ids": [
+          "R002"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://i-newcar.com/index.php?a=index&aid=4545&c=View&m=home",
+            "publisher": "i-newcar.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 0.92,
+              "content_hash": "9175d780ffa31a21e2ce8a4779fa1b77baf5890f0c19aeaf72886e0a029c4aab"
+            }
+          },
+          {
+            "source_url": "https://i-newcar.com/index.php?a=index&aid=4545&c=View&m=home",
+            "publisher": "i-newcar.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "content_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48",
+              "body_fetch": {
+                "status": "success",
+                "final_url": "https://i-newcar.com/index.php?a=index&aid=4545&c=View&m=home",
+                "redirects": [],
+                "http_status": 200,
+                "content_type": "text/html",
+                "extraction": "article_or_main",
+                "response_bytes": 46146,
+                "transport": "direct_pinned_public_ip",
+                "fetched_at": "2026-10-08T17:44:18.841669+00:00",
+                "attempted_at": "2026-10-08T17:44:18.450705+00:00"
+              }
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 1,
+            "text": ".",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000002",
+            "start": 2,
+            "end": 37,
+            "text": "DeepSeek-Prover-V2：弥合非正式与形式化数学推理的鸿沟",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000003",
+            "start": 38,
+            "end": 273,
+            "text": "尽管 DeepSeek-R1 在非正式推理领域显著提升了 AI 能力，但形式化数学推理仍是 AI 面临的挑战性任务。这主要因为生成可验证的数学证明既需要深刻的概念理解，也需要构建精确、分步逻辑论证的能力。然而，DeepSeek-AI 的研究人员近期推出了开源 AI 模型 DeepSeek-Prover-V2，成功将数学直觉转化为严谨可验证的证明，在该领域取得重大进展。本文将深入解析 DeepSeek-Prover-V2 的技术细节，并探讨其对未来科学发现的潜在影响。",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000004",
+            "start": 274,
+            "end": 284,
+            "text": "形式化数学推理的挑战",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000006",
+            "start": 383,
+            "end": 574,
+            "text": "大型语言模型（LLM）的最新进展显示，其能通过自然语言推理处理竞赛级数学难题。然而，LLM 仍难以将直觉推理转化为机器可验证的形式化证明 —— 非正式推理常包含形式系统无法验证的捷径和省略步骤。DeepSeek-Prover-V2 通过融合非正式与形式化推理的优势解决这一问题，将复杂问题拆解为可管理的子任务，同时保持形式验证所需的精确性，有效弥合人类直觉与机器验证证明之间的鸿沟。",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000010",
+            "start": 790,
+            "end": 899,
+            "text": "该方法的创新性在于训练数据的合成方式：当复杂问题的所有子目标被成功解决后，系统将解决方案整合成完整的形式化证明，并与 DeepSeek-V3 原始的思维链推理配对，生成高质量的 “冷启动” 训练数据，用于模型迭代优化。",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000013",
+            "start": 984,
+            "end": 1085,
+            "text": "训练中的挑战之一是生成证明的结构常与思维链分解的引理不匹配。为此，研究人员在训练阶段引入 “一致性奖励”，减少结构错位，确保所有分解的引理被纳入最终证明。这种对齐方法在需要多步推理的复杂定理中效果显著。",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000018",
+            "start": 1359,
+            "end": 1502,
+            "text": "DeepSeek 研究团队同步推出评估 LLM 数学解题能力的新基准数据集 ProverBench，包含 325 道形式化数学题，涵盖 AIME 竞赛题、教科书及教程问题，涉及数论、代数、微积分、实分析等领域。AIME 问题的引入尤为关键，因其要求模型不仅调用知识，更需创造性解题能力。",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000019",
+            "start": 1503,
+            "end": 1512,
+            "text": "开源价值与未来影响",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000020",
+            "start": 1513,
+            "end": 1689,
+            "text": "DeepSeek-Prover-V2 的开源特性带来广阔机遇：模型部署于 Hugging Face 等平台，可供研究人员、教育工作者和开发者使用。70 亿参数的轻量版与 6710 亿参数的高性能版，确保不同计算资源的用户均能受益。这种开放性鼓励实验创新，助力开发者构建先进的数学解题 AI 工具，推动数学研究突破，赋能科研人员攻克复杂问题并挖掘新洞见。",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          },
+          {
+            "paragraph_id": "B000021",
+            "start": 1690,
+            "end": 1800,
+            "text": "该模型的发展不仅对数学研究意义重大，也将影响 AI 领域：生成形式化证明的能力可辅助数学家解决难题、自动化验证过程，甚至提出新猜想。其技术路径还可能为依赖严谨逻辑推理的其他领域（如软硬件工程）的 AI 模型开发提供借鉴。",
+            "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48"
+          }
+        ],
+        "excerpt": ".\n\nDeepSeek-Prover-V2：弥合非正式与形式化数学推理的鸿沟\n\n尽管 DeepSeek-R1 在非正式推理领域显著提升了 AI 能力，但形式化数学推理仍是 AI 面临的挑战性任务。这主要因为生成可验证的数学证明既需要深刻的概念理解，也需要构建精确、分步逻辑论证的能力。然而，DeepSeek-AI 的研究人员近期推出了开源 AI 模型 DeepSeek-Prover-V2，成功将数学直觉转化为严谨可验证的证明，在该领域取得重大进展。本文将深入解析 DeepSeek-Prover-V2 的技术细节，并探讨其对未来科学发现的潜在影响。\n\n形式化数学推理的挑战\n\n大型语言模型（LLM）的最新进展显示，其能通过自然语言推理处理竞赛级数学难题。然而，LLM 仍难以将直觉推理转化为机器可验证的形式化证明 —— 非正式推理常包含形式系统无法验证的捷径和省略步骤。DeepSeek-Prover-V2 通过融合非正式与形式化推理的优势解决这一问题，将复杂问题拆解为可管理的子任务，同时保持形式验证所需的精确性，有效弥合人类直觉与机器验证证明之间的鸿沟。\n\n该方法的创新性在于训练数据的合成方式：当复杂问题的所有子目标被成功解决后，系统将解决方案整合成完整的形式化证明，并与 DeepSeek-V3 原始的思维链推理配对，生成高质量的 “冷启动” 训练数据，用于模型迭代优化。\n\n训练中的挑战之一是生成证明的结构常与思维链分解的引理不匹配。为此，研究人员在训练阶段引入 “一致性奖励”，减少结构错位，确保所有分解的引理被纳入最终证明。这种对齐方法在需要多步推理的复杂定理中效果显著。\n\nDeepSeek 研究团队同步推出评估 LLM 数学解题能力的新基准数据集 ProverBench，包含 325 道形式化数学题，涵盖 AIME 竞赛题、教科书及教程问题，涉及数论、代数、微积分、实分析等领域。AIME 问题的引入尤为关键，因其要求模型不仅调用知识，更需创造性解题能力。\n\n开源价值与未来影响\n\nDeepSeek-Prover-V2 的开源特性带来广阔机遇：模型部署于 Hugging Face 等平台，可供研究人员、教育工作者和开发者使用。70 亿参数的轻量版与 6710 亿参数的高性能版，确保不同计算资源的用户均能受益。这种开放性鼓励实验创新，助力开发者构建先进的数学解题 AI 工具，推动数学研究突破，赋能科研人员攻克复杂问题并挖掘新洞见。\n\n该模型的发展不仅对数学研究意义重大，也将影响 AI 领域：生成形式化证明的能力可辅助数学家解决难题、自动化验证过程，甚至提出新猜想。其技术路径还可能为依赖严谨逻辑推理的其他领域（如软硬件工程）的 AI 模型开发提供借鉴。"
+      },
+      {
+        "id": "E006",
+        "source_url": "https://zhuanlan.zhihu.com/p/22896071303",
+        "file_id": null,
+        "title": "数学是检验人工“智能”的唯一标准，人类离AGI还有多远？ - 知乎",
+        "publisher": "zhuanlan.zhihu.com",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.842739Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "snippet_only",
+        "source_group": "source:d28e97cb012c6e84",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "snippet",
+        "source_kind_basis": "",
+        "snapshot_hash": "4fc35b3c7d823d48fbd9357f2123830b80eafda34d2cfd3096de26f2e8137f96",
+        "content_truncated": false,
+        "query_ids": [
+          "R001"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://zhuanlan.zhihu.com/p/22896071303",
+            "publisher": "zhuanlan.zhihu.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 0.92,
+              "content_hash": "4fc35b3c7d823d48fbd9357f2123830b80eafda34d2cfd3096de26f2e8137f96"
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 113,
+            "text": "随着技术的发展，AI的潜力不断被挖掘，尤其是在生成良好猜想方面。未来，AI可能通过庞大的数据集，自动推测不同数学对象之间的关系。尽管目前尚未具备足够的数据集来实现这一目标，但这一方向充满希望，可能成为未来数学研究中的重要工具。",
+            "snapshot_hash": "4fc35b3c7d823d48fbd9357f2123830b80eafda34d2cfd3096de26f2e8137f96"
+          }
+        ],
+        "excerpt": "随着技术的发展，AI的潜力不断被挖掘，尤其是在生成良好猜想方面。未来，AI可能通过庞大的数据集，自动推测不同数学对象之间的关系。尽管目前尚未具备足够的数据集来实现这一目标，但这一方向充满希望，可能成为未来数学研究中的重要工具。"
+      },
+      {
+        "id": "E007",
+        "source_url": "https://ecas.cas.cn/dtfb/yjdt/202112/t20211215_4939024.html",
+        "file_id": null,
+        "title": "人工智能帮助数学家发现新的猜想和定理----中国科学院网信工作网",
+        "publisher": "ecas.cas.cn",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.844014Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "secondary",
+        "source_group": "source:5a656a831f7961ef",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "body",
+        "source_kind_basis": "",
+        "snapshot_hash": "95cc098df0f2fef551b12a5e7fe9a7d29d9c04ad9231669bc45d84f26ae36073",
+        "content_truncated": false,
+        "query_ids": [
+          "R001"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://ecas.cas.cn/dtfb/yjdt/202112/t20211215_4939024.html",
+            "publisher": "ecas.cas.cn",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 0.84,
+              "content_hash": "d165f8d51788444349fe9ce8fe6d9be3d6fab46422ab83be9f9a90c0305650f9"
+            }
+          },
+          {
+            "source_url": "https://ecas.cas.cn/dtfb/yjdt/202112/t20211215_4939024.html",
+            "publisher": "ecas.cas.cn",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "content_hash": "95cc098df0f2fef551b12a5e7fe9a7d29d9c04ad9231669bc45d84f26ae36073",
+              "body_fetch": {
+                "status": "success",
+                "final_url": "https://ecas.cas.cn/dtfb/yjdt/202112/t20211215_4939024.html",
+                "redirects": [],
+                "http_status": 200,
+                "content_type": "text/html",
+                "extraction": "article_or_main",
+                "response_bytes": 21851,
+                "transport": "direct_pinned_public_ip",
+                "fetched_at": "2026-10-08T17:44:18.717468+00:00",
+                "attempted_at": "2026-10-08T17:44:18.584695+00:00"
+              }
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 63,
+            "text": "国际著名学术期刊《自然》最新一期封面发表一篇计算机科学论文称，科研人员研发出一个机器学习框架，能帮助数学家发现新的猜想和定理。",
+            "snapshot_hash": "95cc098df0f2fef551b12a5e7fe9a7d29d9c04ad9231669bc45d84f26ae36073"
+          },
+          {
+            "paragraph_id": "B000002",
+            "start": 64,
+            "end": 144,
+            "text": "该机器学习框架由知名人工智能(AI)企业DeepMind开发，已经帮助发现了不同纯数学领域的两个新猜想，这项研究展示出机器学习如何整合进现存工作流支持数学研究。",
+            "snapshot_hash": "95cc098df0f2fef551b12a5e7fe9a7d29d9c04ad9231669bc45d84f26ae36073"
+          },
+          {
+            "paragraph_id": "B000003",
+            "start": 145,
+            "end": 261,
+            "text": "据介绍，纯数学研究工作的关键目标之一是发现数学对象间的规律，并利用这些联系形成猜想：怀疑为真但尚未得到严格证明的叙述。从20世纪60年代开始，数学家开始使用计算机帮助发现规律和提出猜想，但人工智能系统尚未普遍应用于理论数学研究领域。",
+            "snapshot_hash": "95cc098df0f2fef551b12a5e7fe9a7d29d9c04ad9231669bc45d84f26ae36073"
+          },
+          {
+            "paragraph_id": "B000004",
+            "start": 262,
+            "end": 382,
+            "text": "论文通讯作者、DeepMind亚历克斯 戴维斯(Alex Davies)和数学家一起建立了一个机器学习框架，用于协助数学研究。他们的算法搜索数学对象间潜在的规律和联系，尝试寻找意义。其后由数学家接手，利用这些观察来引导他们对潜在猜想的直觉。",
+            "snapshot_hash": "95cc098df0f2fef551b12a5e7fe9a7d29d9c04ad9231669bc45d84f26ae36073"
+          },
+          {
+            "paragraph_id": "B000005",
+            "start": 383,
+            "end": 500,
+            "text": "亚历克斯 戴维斯和同事在论文中报告说，将机器学习框架这一方法应用于两个纯数学领域，发现了拓扑学(对几何形状性质的研究)的一个新定理，以及一个表示论(代数系统研究)的新猜想。他们总结认为，机器学习框架能鼓励未来数学和人工智能领域的合作。",
+            "snapshot_hash": "95cc098df0f2fef551b12a5e7fe9a7d29d9c04ad9231669bc45d84f26ae36073"
+          }
+        ],
+        "excerpt": "国际著名学术期刊《自然》最新一期封面发表一篇计算机科学论文称，科研人员研发出一个机器学习框架，能帮助数学家发现新的猜想和定理。\n\n该机器学习框架由知名人工智能(AI)企业DeepMind开发，已经帮助发现了不同纯数学领域的两个新猜想，这项研究展示出机器学习如何整合进现存工作流支持数学研究。\n\n据介绍，纯数学研究工作的关键目标之一是发现数学对象间的规律，并利用这些联系形成猜想：怀疑为真但尚未得到严格证明的叙述。从20世纪60年代开始，数学家开始使用计算机帮助发现规律和提出猜想，但人工智能系统尚未普遍应用于理论数学研究领域。\n\n论文通讯作者、DeepMind亚历克斯 戴维斯(Alex Davies)和数学家一起建立了一个机器学习框架，用于协助数学研究。他们的算法搜索数学对象间潜在的规律和联系，尝试寻找意义。其后由数学家接手，利用这些观察来引导他们对潜在猜想的直觉。\n\n亚历克斯 戴维斯和同事在论文中报告说，将机器学习框架这一方法应用于两个纯数学领域，发现了拓扑学(对几何形状性质的研究)的一个新定理，以及一个表示论(代数系统研究)的新猜想。他们总结认为，机器学习框架能鼓励未来数学和人工智能领域的合作。"
+      },
+      {
+        "id": "E008",
+        "source_url": "https://www.80aj.com/2026/10/03/lean-proof-verification/",
+        "file_id": null,
+        "title": "写给软件工程师的Lean证明解剖：从有限自动机到形式化验证",
+        "publisher": "www.80aj.com",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.845420Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "secondary",
+        "source_group": "source:16fc9bd559721835",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "body",
+        "source_kind_basis": "",
+        "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a",
+        "content_truncated": false,
+        "query_ids": [
+          "R003"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://www.80aj.com/2026/10/03/lean-proof-verification/",
+            "publisher": "www.80aj.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 0.84,
+              "content_hash": "3fcc9b1d425cebdc34fa7a12cb177ff20a2e035d4278744e7c8fb73fdb883b87"
+            }
+          },
+          {
+            "source_url": "https://www.80aj.com/2026/10/03/lean-proof-verification/",
+            "publisher": "www.80aj.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "content_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a",
+              "body_fetch": {
+                "status": "success",
+                "final_url": "https://www.80aj.com/2026/10/03/lean-proof-verification/",
+                "redirects": [],
+                "http_status": 200,
+                "content_type": "text/html",
+                "extraction": "article_or_main",
+                "response_bytes": 68346,
+                "transport": "direct_pinned_public_ip",
+                "fetched_at": "2026-10-08T17:44:20.828347+00:00",
+                "attempted_at": "2026-10-08T17:44:18.593689+00:00"
+              }
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 494,
+            "text": "作者近期完成了计算理论教材中的一道习题：利用有限自动机证明某语言的一个性质。这个非形式化证明属于构造性证明——先构建一个自动机，再证明它能识别该语言。由于这与程序验证颇为相似，作者决定尝试用Lean对该证明进行形式化。Lean是理想的选择，因为其数学库Mathlib已包含解决问题所需的全部定理。完成形式化证明后，作者撰文分享，旨在帮助软件工程师理解对系统属性进行形式化证明需要付出什么。文章面向熟悉现代静态类型语言（如TypeScript或Rust）、二进制运算、基本命题逻辑和归纳证明的读者，力求通俗易懂。文章首先介绍了确定有限自动机（DFA）与正则语言的背景知识：有限自动机是具有固定内存的计算理论模型，除理论价值外还有重要实践应用，如解析器和正则表达式引擎，曾有一个相关缺陷导致互联网大面积瘫痪。DFA是一种拥有固定有限状态集的机器，从左到右逐个读取输入符号，并根据确定性的转移函数更新状态；处理完输入后，若处于接受状态则接受输入，否则拒绝。作者以匹配整数字面量的正则表达式为例，构建了一个包含起始、符号、数字和死状态四种状态的DFA，并逐一解释各状态的行为逻辑与接受、拒绝条件。",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000002",
+            "start": 495,
+            "end": 499,
+            "text": "事件分析",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000003",
+            "start": 500,
+            "end": 815,
+            "text": "技术看点：本文展示了形式化方法平民化的趋势——借助Lean及其社区维护的Mathlib数学库，具备静态类型语言经验的工程师即可上手定理证明，上手门槛明显低于Coq、Isabelle等早期证明助手。产业层面，随着AI生成代码规模激增，传统测试手段难以充分保证正确性，形式化验证的价值正被重估；DeepMind的AlphaProof等系统已证明大模型可以在Lean中完成数学证明，AI生成、形式化验证可能成为高可信软件的新范式。自动驾驶、芯片设计等安全攸关领域对可证明正确的软件需求持续增长，Lean正从学术圈走向工业界。后续值得关注：Lean生态的商业化进展、AI辅助定理证明工具的成熟度，以及形式化验证融入主流软件工程流程的速度。",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000004",
+            "start": 816,
+            "end": 866,
+            "text": "核心观点：形式化证明正从学术象牙塔走向工程实践，AI时代代码可信性将越来越依赖Lean这类证明工具。",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000005",
+            "start": 867,
+            "end": 883,
+            "text": "原文链接：Hacker News",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000006",
+            "start": 884,
+            "end": 926,
+            "text": "赞助推荐【WorkBuddy】找个 AI 搭子帮你干活，注册即可获取 2000 积分",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000007",
+            "start": 927,
+            "end": 932,
+            "text": "赞(0)",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000008",
+            "start": 933,
+            "end": 978,
+            "text": "未经允许不得转载：80aj » 写给软件工程师的Lean证明解剖：从有限自动机到形式化验证",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000009",
+            "start": 979,
+            "end": 991,
+            "text": "分享到",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000010",
+            "start": 992,
+            "end": 996,
+            "text": "相关推荐",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000011",
+            "start": 997,
+            "end": 1049,
+            "text": "Durable Actors开源发布：可自托管的Durable Objects替代方案，瞄准AI实时应用",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000012",
+            "start": 1050,
+            "end": 1097,
+            "text": "开源 Mac 录屏工具 Caplo：点击自动生成放大镜头，免费对标 Screen Studio",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000013",
+            "start": 1098,
+            "end": 1142,
+            "text": "OpenAI纳维-斯托克斯证明遭质疑：新研究揭示Lean验证无法保证AI数学证明忠实原意",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          },
+          {
+            "paragraph_id": "B000014",
+            "start": 1143,
+            "end": 1182,
+            "text": "1万亿Token≈367块H100？一个把AI增长数据换算成GPU需求的计算器",
+            "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a"
+          }
+        ],
+        "excerpt": "作者近期完成了计算理论教材中的一道习题：利用有限自动机证明某语言的一个性质。这个非形式化证明属于构造性证明——先构建一个自动机，再证明它能识别该语言。由于这与程序验证颇为相似，作者决定尝试用Lean对该证明进行形式化。Lean是理想的选择，因为其数学库Mathlib已包含解决问题所需的全部定理。完成形式化证明后，作者撰文分享，旨在帮助软件工程师理解对系统属性进行形式化证明需要付出什么。文章面向熟悉现代静态类型语言（如TypeScript或Rust）、二进制运算、基本命题逻辑和归纳证明的读者，力求通俗易懂。文章首先介绍了确定有限自动机（DFA）与正则语言的背景知识：有限自动机是具有固定内存的计算理论模型，除理论价值外还有重要实践应用，如解析器和正则表达式引擎，曾有一个相关缺陷导致互联网大面积瘫痪。DFA是一种拥有固定有限状态集的机器，从左到右逐个读取输入符号，并根据确定性的转移函数更新状态；处理完输入后，若处于接受状态则接受输入，否则拒绝。作者以匹配整数字面量的正则表达式为例，构建了一个包含起始、符号、数字和死状态四种状态的DFA，并逐一解释各状态的行为逻辑与接受、拒绝条件。\n\n事件分析\n\n技术看点：本文展示了形式化方法平民化的趋势——借助Lean及其社区维护的Mathlib数学库，具备静态类型语言经验的工程师即可上手定理证明，上手门槛明显低于Coq、Isabelle等早期证明助手。产业层面，随着AI生成代码规模激增，传统测试手段难以充分保证正确性，形式化验证的价值正被重估；DeepMind的AlphaProof等系统已证明大模型可以在Lean中完成数学证明，AI生成、形式化验证可能成为高可信软件的新范式。自动驾驶、芯片设计等安全攸关领域对可证明正确的软件需求持续增长，Lean正从学术圈走向工业界。后续值得关注：Lean生态的商业化进展、AI辅助定理证明工具的成熟度，以及形式化验证融入主流软件工程流程的速度。\n\n核心观点：形式化证明正从学术象牙塔走向工程实践，AI时代代码可信性将越来越依赖Lean这类证明工具。\n\n原文链接：Hacker News\n\n赞助推荐【WorkBuddy】找个 AI 搭子帮你干活，注册即可获取 2000 积分\n\n赞(0)\n\n未经允许不得转载：80aj » 写给软件工程师的Lean证明解剖：从有限自动机到形式化验证\n\n分享到\n\n相关推荐\n\nDurable Actors开源发布：可自托管的Durable Objects替代方案，瞄准AI实时应用\n\n开源 Mac 录屏工具 Caplo：点击自动生成放大镜头，免费对标 Screen Studio\n\nOpenAI纳维-斯托克斯证明遭质疑：新研究揭示Lean验证无法保证AI数学证明忠实原意\n\n1万亿Token≈367块H100？一个把AI增长数据换算成GPU需求的计算器"
+      },
+      {
+        "id": "E009",
+        "source_url": "https://zhuanlan.zhihu.com/p/1998027174565941529",
+        "file_id": null,
+        "title": "AI for Mathematics 深度综述 - 知乎",
+        "publisher": "zhuanlan.zhihu.com",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.847256Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "snippet_only",
+        "source_group": "source:091cdff6980afa1f",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "snippet",
+        "source_kind_basis": "",
+        "snapshot_hash": "c10aef0fb57160cf757b7f4218498bbf717360bfbea0bc89c17b57f40d17c26d",
+        "content_truncated": false,
+        "query_ids": [
+          "R002"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://zhuanlan.zhihu.com/p/1998027174565941529",
+            "publisher": "zhuanlan.zhihu.com",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 0.84,
+              "content_hash": "c10aef0fb57160cf757b7f4218498bbf717360bfbea0bc89c17b57f40d17c26d"
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 262,
+            "text": "这是针对特定数学任务“定制”的 AI。例如，DeepMind 利用机器学习辅助数学家在纽结理论中发现不变量之间的关系、启发Bruhat Interval的分解模式，或者 AlphaGeometry 这种专门针对欧氏几何证明设计的系统。（关于DeepMInd和著名数学家Geordie Williamson的工作，以及我们后续在ADLV上的探索，可以查看知乎旧文：如何评价12月1日DeepMind团队Nature关于首次使用人工智能帮助数学家证明定理的论文？） · 特点： 它们非常适合在最前沿的数学问题上进行单点突破。这类",
+            "snapshot_hash": "c10aef0fb57160cf757b7f4218498bbf717360bfbea0bc89c17b57f40d17c26d"
+          }
+        ],
+        "excerpt": "这是针对特定数学任务“定制”的 AI。例如，DeepMind 利用机器学习辅助数学家在纽结理论中发现不变量之间的关系、启发Bruhat Interval的分解模式，或者 AlphaGeometry 这种专门针对欧氏几何证明设计的系统。（关于DeepMInd和著名数学家Geordie Williamson的工作，以及我们后续在ADLV上的探索，可以查看知乎旧文：如何评价12月1日DeepMind团队Nature关于首次使用人工智能帮助数学家证明定理的论文？） · 特点： 它们非常适合在最前沿的数学问题上进行单点突破。这类"
+      },
+      {
+        "id": "E010",
+        "source_url": "https://blog.csdn.net/weixin_29163857/article/details/163970536",
+        "file_id": null,
+        "title": "AI如何重塑数学研究：从解题工具到人机协同的新范式-CSDN博客",
+        "publisher": "blog.csdn.net",
+        "published_at": null,
+        "updated_at": null,
+        "retrieved_at": "2026-10-08T17:44:20.848654Z",
+        "event_at": null,
+        "claim": "待核查",
+        "source_type": "snippet_only",
+        "source_group": "source:8be81083fc4779c6",
+        "date_status": "unknown",
+        "conflict_group": null,
+        "source_kind": "unknown",
+        "content_kind": "snippet",
+        "source_kind_basis": "",
+        "snapshot_hash": "33b533e92a9938bc397d7ada1e1cef1b862226054f24074af861ba7992987a05",
+        "content_truncated": false,
+        "query_ids": [
+          "R001"
+        ],
+        "aliases": [
+          {
+            "source_url": "https://blog.csdn.net/weixin_29163857/article/details/163970536",
+            "publisher": "blog.csdn.net",
+            "published_at": null,
+            "updated_at": null,
+            "metadata": {
+              "score": 0.76,
+              "content_hash": "33b533e92a9938bc397d7ada1e1cef1b862226054f24074af861ba7992987a05"
+            }
+          }
+        ],
+        "source_group_basis": "单独资料，未核实独立性",
+        "possible_same_source": [],
+        "date_basis": {
+          "retrieved_at": "本次工具实际取得时间",
+          "cutoff_validation": "实时在线检索在信息截至时间后 97 秒取得；按 900 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
+        },
+        "availability": "live_near_cutoff",
+        "event_status": "unknown",
+        "passages": [
+          {
+            "paragraph_id": "B000001",
+            "start": 0,
+            "end": 287,
+            "text": "AI如何成为科研新范式：人机协同攻克数学猜想实战指南 ... 大语言模型（LLM）作为强大的信息整合与逻辑推理工具，正在重塑传统科研工作流。其核心原理在于通过自然语言交互，将复杂专业知识转化为可理解的概念，并建立跨领域知识连接。这一技术价值在于显著降低研究门槛，使非专业研究者也能参与深度科学探索。在应用场景上，LLM可作为跨领域翻译器、知识图谱连接器和思路生成催化剂，尤其适合数学猜想、交叉学科等需要发散性思维的领域。本文以攻克数学猜想为例，深入剖析了如何将ChatGPT等工具从聊天机器人转变为个人研究合作者，通过提示工程、代码执行环境与交叉验证机制，构建了一套可实操的",
+            "snapshot_hash": "33b533e92a9938bc397d7ada1e1cef1b862226054f24074af861ba7992987a05"
+          }
+        ],
+        "excerpt": "AI如何成为科研新范式：人机协同攻克数学猜想实战指南 ... 大语言模型（LLM）作为强大的信息整合与逻辑推理工具，正在重塑传统科研工作流。其核心原理在于通过自然语言交互，将复杂专业知识转化为可理解的概念，并建立跨领域知识连接。这一技术价值在于显著降低研究门槛，使非专业研究者也能参与深度科学探索。在应用场景上，LLM可作为跨领域翻译器、知识图谱连接器和思路生成催化剂，尤其适合数学猜想、交叉学科等需要发散性思维的领域。本文以攻克数学猜想为例，深入剖析了如何将ChatGPT等工具从聊天机器人转变为个人研究合作者，通过提示工程、代码执行环境与交叉验证机制，构建了一套可实操的"
+      }
+    ],
+    "evidence_assessment": {
+      "summary": "保留7项带可定位原文引文的发现，引用7条来源。引文匹配不等于独立事实验证；未选中或未引用的段落不代表来源没有相关内容。",
+      "quality_profile": {
+        "source_count": 10,
+        "source_group_count": 10,
+        "body_source_count": 4,
+        "snippet_only_count": 6,
+        "primary_label_count": 0,
+        "unknown_publication_count": 10,
+        "truncated_count": 0,
+        "suspected_same_source_count": 0,
+        "merged_alias_count": 4,
+        "search_success_count": 3,
+        "search_empty_count": 0,
+        "search_failure_count": 0,
+        "excluded_count": 0,
+        "validated_finding_count": 7,
+        "rejected_finding_count": 2,
+        "unresolved_conflict_count": 0,
+        "warnings": [
+          "6 条来源只有检索摘要，不能等同于已取得完整原文。",
+          "10 条来源发布时间未知，取得时间不能证明历史截点前已可用。",
+          "2 项证据发现/冲突/缺口候选未通过校验，不能作为有效事实。"
+        ]
+      },
+      "findings_validated": true,
+      "findings": [
+        {
+          "id": "F001",
+          "claim": "DeepMind已经成功帮助数学家发现了新的猜想，比如在拓扑学和表示论中。",
+          "relation": "supports",
+          "citations": [
+            {
+              "evidence_id": "E001",
+              "snapshot_hash": "85be9ddc348a0d5ef14334d2e2e7884ac6f44ca464c8594b67956bc3e2968a98",
+              "paragraph_id": "B000001",
+              "quote": ">根据和，DeepMind已经成功帮助数学家发现了新的猜想，比如在拓扑学和表示论中。 这表明AI目前更多是辅助发现新猜想，而不仅仅是解决现有难题。 提到DeepMind破解了“纽结”猜想，说...",
+              "start": 0,
+              "end": 98
+            }
+          ],
+          "limitation": "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学猜想提出中的具体影响程度。"
+        },
+        {
+          "id": "F002",
+          "claim": "OpenAI开发的神经定理证明器成功解出了两道国际奥数题，表明AI可以用于解决数学问题。",
+          "relation": "supports",
+          "citations": [
+            {
+              "evidence_id": "E002",
+              "snapshot_hash": "fc1fdd5cdc7dd4925193e12dac8f501d5fe94ce9d050eff51d3ccd917706b7e4",
+              "paragraph_id": "B000001",
+              "quote": "巧合的是，在同一天，OpenAI 也展示了一项重要成果：他们开发的神经定理证明器成功解出了两道国际奥数题。这一成果是在微软打磨了多年的数学 AI——Lean 的基础上完成的。Lean 于 2013 年推出，数学家可以把数学公式转换成代码，再输入到 Lean 中，让程序来验证定理是否正确。OpenAI 的成功表明，AI 不仅可以用于解决编程等应用学科的问题，还能用来攻克数学等自然学科。",
+              "start": 0,
+              "end": 193
+            }
+          ],
+          "limitation": "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学证明检验中的具体影响程度。"
+        },
+        {
+          "id": "F003",
+          "claim": "Lean 4 的设计哲学遵循一个核心原则：将 “聪明” 的自动化机制全部置于内核之外，而让内核保持尽可能小且可信。",
+          "relation": "supports",
+          "citations": [
+            {
+              "evidence_id": "E003",
+              "snapshot_hash": "3da533be38516031c48be0a47165ff1c218e8d2be17cbda4096b5ecb4c30718c",
+              "paragraph_id": "B000007",
+              "quote": "Lean 4 的设计哲学遵循一个核心原则：将 “聪明” 的自动化机制全部置于内核之外，而让内核保持尽可能小且可信。这一架构思路直接继承了经典定理证明器的设计经验，同时在实现层面进行了现代化重构。",
+              "start": 281,
+              "end": 378
+            }
+          ],
+          "limitation": "资料未提供具体的时间范围或进一步的细节，因此无法确定Lean等形式化验证社区与AI工具结合的具体影响程度。"
+        },
+        {
+          "id": "F004",
+          "claim": "Axiom利用Lean开发AI数学家系统，其技术可服务于对冲基金和量化交易公司，并获得了投资。",
+          "relation": "supports",
+          "citations": [
+            {
+              "evidence_id": "E004",
+              "snapshot_hash": "5ca4186b325ccb9a50e7f40faebb2e33b628fff7a3982703e3dd98386cb4800b",
+              "paragraph_id": "B000001",
+              "quote": "在商业应用与初创生态方面，基于Lean语言的形式化验证技术开始应用于AI系统和金融领域，推动了相关初创公司的发展。例如，初创公司Axiom利用Lean开发AI数学家系统，其技术可服务于对冲基金和量化交易公司，并获得了投资 [12]。2025年12月，Axiom核心系统AxiomProver在普特南数学竞赛中完成全部12道试题并取得满分。2026年3月，Axiom完成2亿美元A轮融资，估值",
+              "start": 51,
+              "end": 246
+            }
+          ],
+          "limitation": "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学科研中的具体影响程度。"
+        },
+        {
+          "id": "F005",
+          "claim": "DeepSeek-Prover-V2通过融合非正式与形式化推理的优势解决这一问题，将复杂问题拆解为可管理的子任务，同时保持形式验证所需的精确性。",
+          "relation": "supports",
+          "citations": [
+            {
+              "evidence_id": "E005",
+              "snapshot_hash": "c15e79072a9b90ba99991b308b0ca934cedc1748a27616901b0f6eee41aa3a48",
+              "paragraph_id": "B000006",
+              "quote": "大型语言模型（LLM）的最新进展显示，其能通过自然语言推理处理竞赛级数学难题。然而，LLM 仍难以将直觉推理转化为机器可验证的形式化证明 —— 非正式推理常包含形式系统无法验证的捷径和省略步骤。DeepSeek-Prover-V2 通过融合非正式与形式化推理的优势解决这一问题，将复杂问题拆解为可管理的子任务，同时保持形式验证所需的精确性，有效弥合人类直觉与机器验证证明之间的鸿沟。",
+              "start": 383,
+              "end": 574
+            }
+          ],
+          "limitation": "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学科研中的具体影响程度。"
+        },
+        {
+          "id": "F006",
+          "claim": "AI可能通过庞大的数据集，自动推测不同数学对象之间的关系。",
+          "relation": "supports",
+          "citations": [
+            {
+              "evidence_id": "E006",
+              "snapshot_hash": "4fc35b3c7d823d48fbd9357f2123830b80eafda34d2cfd3096de26f2e8137f96",
+              "paragraph_id": "B000001",
+              "quote": "随着技术的发展，AI的潜力不断被挖掘，尤其是在生成良好猜想方面。未来，AI可能通过庞大的数据集，自动推测不同数学对象之间的关系。尽管目前尚未具备足够的数据集来实现这一目标，但这一方向充满希望，可能成为未来数学研究中的重要工具。",
+              "start": 0,
+              "end": 113
+            }
+          ],
+          "limitation": "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学科研中的具体影响程度。"
+        },
+        {
+          "id": "F008",
+          "claim": "形式化证明正从学术象牙塔走向工程实践，AI时代代码可信性将越来越依赖Lean这类证明工具。",
+          "relation": "supports",
+          "citations": [
+            {
+              "evidence_id": "E008",
+              "snapshot_hash": "1c3b2667634c5a114d79ea88fafa9404b1ee4e4522a2c73c4a5010e367804d8a",
+              "paragraph_id": "B000004",
+              "quote": "核心观点：形式化证明正从学术象牙塔走向工程实践，AI时代代码可信性将越来越依赖Lean这类证明工具。",
+              "start": 816,
+              "end": 866
+            }
+          ],
+          "limitation": "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学科研中的具体影响程度。"
+        }
+      ],
+      "conflict_details": [],
+      "gap_details": [
+        {
+          "missing": "E001 只有搜索摘要，未取得正文",
+          "attempted_query_ids": [],
+          "cause": "snippet_only",
+          "topic": "available_information"
+        },
+        {
+          "missing": "E002 只有搜索摘要，未取得正文",
+          "attempted_query_ids": [],
+          "cause": "snippet_only",
+          "topic": "available_information"
+        },
+        {
+          "missing": "E004 只有搜索摘要，未取得正文",
+          "attempted_query_ids": [],
+          "cause": "snippet_only",
+          "topic": "available_information"
+        },
+        {
+          "missing": "E006 只有搜索摘要，未取得正文",
+          "attempted_query_ids": [],
+          "cause": "snippet_only",
+          "topic": "available_information"
+        },
+        {
+          "missing": "E009 只有搜索摘要，未取得正文",
+          "attempted_query_ids": [],
+          "cause": "snippet_only",
+          "topic": "available_information"
+        },
+        {
+          "missing": "E010 只有搜索摘要，未取得正文",
+          "attempted_query_ids": [],
+          "cause": "snippet_only",
+          "topic": "available_information"
+        },
+        {
+          "missing": "10 条来源缺少发布时间元数据（E001、E002、E003、E004、E005 等）；实时检索可记录取得时间，但不能据此证明历史截点可用性",
+          "attempted_query_ids": [],
+          "cause": "date_unknown",
+          "topic": "available_information"
+        },
+        {
+          "missing": "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学科研中的具体影响程度。",
+          "attempted_query_ids": [
+            "R001",
+            "R002",
+            "R003"
+          ],
+          "cause": "not_found",
+          "topic": "available_information"
+        },
+        {
+          "missing": "已保留2条候选拒绝/结构错误审计，它们不是有效事实。",
+          "attempted_query_ids": [],
+          "cause": "validation_failed",
+          "topic": "available_information"
+        }
+      ],
+      "retrieval_log": [
+        {
+          "task_id": "R001",
+          "query": "AI工具在数学猜想提出中的应用现状及未来发展趋势",
+          "purpose": "initial",
+          "status": "success",
+          "result_count": 8,
+          "elapsed_seconds": 1.3534074119961588,
+          "error": null
+        },
+        {
+          "task_id": "R002",
+          "query": "模型厂商在数学证明检验中的AI工具开发情况",
+          "purpose": "initial",
+          "status": "success",
+          "result_count": 8,
+          "elapsed_seconds": 2.4618665290036006,
+          "error": null
+        },
+        {
+          "task_id": "R003",
+          "query": "Lean等形式化验证社区与AI工具的结合情况及影响",
+          "purpose": "initial",
+          "status": "success",
+          "result_count": 8,
+          "elapsed_seconds": 3.5696535269962624,
+          "error": null
+        }
+      ],
+      "exclusions": [],
+      "evidence_ids": [
+        "E001",
+        "E002",
+        "E003",
+        "E004",
+        "E005",
+        "E006",
+        "E007",
+        "E008",
+        "E009",
+        "E010"
+      ],
+      "conflicts": [],
+      "gaps": [
+        "E001 只有搜索摘要，未取得正文",
+        "E002 只有搜索摘要，未取得正文",
+        "E004 只有搜索摘要，未取得正文",
+        "E006 只有搜索摘要，未取得正文",
+        "E009 只有搜索摘要，未取得正文",
+        "E010 只有搜索摘要，未取得正文",
+        "10 条来源缺少发布时间元数据（E001、E002、E003、E004、E005 等）；实时检索可记录取得时间，但不能据此证明历史截点可用性",
+        "资料未提供具体的时间范围或进一步的细节，因此无法确定AI工具在数学科研中的具体影响程度。",
+        "已保留2条候选拒绝/结构错误审计，它们不是有效事实。"
+      ]
+    },
+    "world": {
+      "state_version": 1,
+      "summary": "AI工具正在改变数学科研中的猜想提出、证明检验和论文评审。DeepMind等模型厂商已帮助数学家发现新猜想，如拓扑学和表示论中的新猜想。Lean等形式化验证社区正在推动形式化验证技术的应用，如Axiom公司利用Lean开发AI数学家系统。期刊和资助机构也在关注AI在数学科研中的应用，如OpenAI的神经定理证明器成功解出国际奥数题。这些行动将相互影响，形成不同的结果。",
+      "variables": {
+        "ai_g猜想发现": "DeepMind等模型厂商已帮助数学家发现新猜想，如拓扑学和表示论中的新猜想。",
+        "ai证明检验": "OpenAI的神经定理证明器成功解出国际奥数题，表明AI可以用于解决数学问题。",
+        "lean应用": "Lean等形式化验证社区正在推动形式化验证技术的应用，如Axiom公司利用Lean开发AI数学家系统。",
+        "期刊评审": "期刊和资助机构正在关注AI在数学科研中的应用，如OpenAI的神经定理证明器成功解出国际奥数题。",
+        "模型厂商行动": "模型厂商正在开发AI工具，如DeepSeek-Prover-V2，以解决数学问题。",
+        "科研团队行动": "科研团队正在利用AI工具进行数学研究，如DeepMind帮助数学家发现新猜想。",
+        "资助机构行动": "资助机构正在支持AI在数学科研中的应用，如Axiom公司获得投资。",
+        "形式化验证社区行动": "形式化验证社区正在推动形式化验证技术的应用，如Lean的内核设计哲学。",
+        "ai论文评审": "AI工具正在改变论文评审流程，如DeepSeek-Prover-V2通过融合非正式与形式化推理的优势解决这一问题。"
+      },
+      "relations": [
+        "模型厂商与科研团队：模型厂商开发AI工具，科研团队利用这些工具进行数学研究。",
+        "形式化验证社区与期刊：形式化验证社区推动形式化验证技术的应用，期刊关注AI在数学科研中的应用。",
+        "资助机构与科研团队：资助机构支持AI在数学科研中的应用，科研团队利用这些支持进行研究。",
+        "模型厂商与形式化验证社区：模型厂商开发AI工具，形式化验证社区推动形式化验证技术的应用。",
+        "科研团队与期刊：科研团队利用AI工具进行数学研究，期刊关注AI在数学科研中的应用。",
+        "模型厂商与资助机构：模型厂商开发AI工具，资助机构支持AI在数学科研中的应用。",
+        "形式化验证社区与模型厂商：形式化验证社区推动形式化验证技术的应用，模型厂商开发AI工具。",
+        "期刊与资助机构：期刊关注AI在数学科研中的应用，资助机构支持AI在数学科研中的应用。",
+        "科研团队与形式化验证社区：科研团队利用AI工具进行数学研究，形式化验证社区推动形式化验证技术的应用。"
+      ],
+      "actors": [
+        {
+          "id": "A001",
+          "name": "DeepMind",
+          "goal": "帮助数学家发现新猜想，如拓扑学和表示论中的新猜想。",
+          "resources": [
+            "AI工具",
+            "数学家",
+            "研究资金"
+          ],
+          "constraints": [
+            "需要数学家的指导",
+            "需要研究资金"
+          ],
+          "visible_evidence_ids": [
+            "E001",
+            "E007"
+          ]
+        },
+        {
+          "id": "A002",
+          "name": "OpenAI",
+          "goal": "开发神经定理证明器，成功解出国际奥数题。",
+          "resources": [
+            "AI工具",
+            "数学家",
+            "研究资金"
+          ],
+          "constraints": [
+            "需要数学家的指导",
+            "需要研究资金"
+          ],
+          "visible_evidence_ids": [
+            "E002"
+          ]
+        },
+        {
+          "id": "A003",
+          "name": "Lean社区",
+          "goal": "推动形式化验证技术的应用，如Axiom公司利用Lean开发AI数学家系统。",
+          "resources": [
+            "Lean工具",
+            "数学家",
+            "研究资金"
+          ],
+          "constraints": [
+            "需要数学家的指导",
+            "需要研究资金"
+          ],
+          "visible_evidence_ids": [
+            "E003",
+            "E004",
+            "E008"
+          ]
+        },
+        {
+          "id": "A004",
+          "name": "Axiom公司",
+          "goal": "利用Lean开发AI数学家系统，服务于对冲基金和量化交易公司。",
+          "resources": [
+            "Lean工具",
+            "数学家",
+            "研究资金"
+          ],
+          "constraints": [
+            "需要数学家的指导",
+            "需要研究资金"
+          ],
+          "visible_evidence_ids": [
+            "E004"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "E001",
+        "E002",
+        "E003",
+        "E004",
+        "E005",
+        "E006",
+        "E007",
+        "E008",
+        "E009",
+        "E010"
+      ],
+      "assumptions": [
+        {
+          "id": "H001",
+          "created_by": "model",
+          "parent_ids": [
+            "F001"
+          ],
+          "content": "AI工具将帮助数学家发现新猜想，如拓扑学和表示论中的新猜想。",
+          "rationale": "根据F001，DeepMind已经成功帮助数学家发现了新的猜想，如在拓扑学和表示论中。"
+        },
+        {
+          "id": "H002",
+          "created_by": "model",
+          "parent_ids": [
+            "F002"
+          ],
+          "content": "AI工具将帮助数学家解决数学问题，如国际奥数题。",
+          "rationale": "根据F002，OpenAI开发的神经定理证明器成功解出了两道国际奥数题，表明AI可以用于解决数学问题。"
+        },
+        {
+          "id": "H003",
+          "created_by": "model",
+          "parent_ids": [
+            "F003"
+          ],
+          "content": "Lean等形式化验证社区将推动形式化验证技术的应用。",
+          "rationale": "根据F003，Lean 4 的设计哲学遵循一个核心原则：将 “聪明” 的自动化机制全部置于内核之外，而让内核保持尽可能小且可信。"
+        },
+        {
+          "id": "H004",
+          "created_by": "model",
+          "parent_ids": [
+            "F004"
+          ],
+          "content": "Axiom公司利用Lean开发AI数学家系统，服务于对冲基金和量化交易公司。",
+          "rationale": "根据F004，Axiom利用Lean开发AI数学家系统，其技术可服务于对冲基金和量化交易公司，并获得了投资。"
+        },
+        {
+          "id": "H005",
+          "created_by": "model",
+          "parent_ids": [
+            "F005"
+          ],
+          "content": "AI工具将帮助数学家解决数学问题，如国际奥数题。",
+          "rationale": "根据F005，DeepSeek-Prover-V2通过融合非正式与形式化推理的优势解决这一问题，将复杂问题拆解为可管理的子任务，同时保持形式验证所需的精确性。"
+        },
+        {
+          "id": "H006",
+          "created_by": "model",
+          "parent_ids": [
+            "F006"
+          ],
+          "content": "AI工具将帮助数学家发现新猜想，如拓扑学和表示论中的新猜想。",
+          "rationale": "根据F006，AI可能通过庞大的数据集，自动推测不同数学对象之间的关系。"
+        },
+        {
+          "id": "H007",
+          "created_by": "model",
+          "parent_ids": [
+            "F008"
+          ],
+          "content": "形式化证明正从学术象牙塔走向工程实践，AI时代代码可信性将越来越依赖Lean这类证明工具。",
+          "rationale": "根据F008，形式化证明正从学术象牙塔走向工程实践，AI时代代码可信性将越来越依赖Lean这类证明工具。"
+        }
+      ],
+      "simulation_branch_reason": "AI工具正在改变数学科研中的猜想提出、证明检验和论文评审。DeepMind等模型厂商已帮助数学家发现新猜想，如拓扑学和表示论中的新猜想。Lean等形式化验证社区正在推动形式化验证技术的应用，如Axiom公司利用Lean开发AI数学家系统。期刊和资助机构也在关注AI在数学科研中的应用，如OpenAI的神经定理证明器成功解出国际奥数题。这些行动将相互影响，形成不同的结果。"
+    },
+    "actions": [
+      {
+        "id": "M1-A001",
+        "actor_id": "A001",
+        "round": 1,
+        "action": "与数学家合作开发更先进的AI工具，以发现拓扑学和表示论中的新猜想",
+        "evidence_ids": [
+          "E001",
+          "E007"
+        ],
+        "assumption_ids": [
+          "H001",
+          "H006"
+        ],
+        "conditions": [
+          "需要数学家的指导",
+          "需要研究资金"
+        ]
+      },
+      {
+        "id": "M1-A002",
+        "actor_id": "A002",
+        "round": 1,
+        "action": "与Lean社区合作开发更强大的形式化验证工具",
+        "evidence_ids": [
+          "E002"
+        ],
+        "assumption_ids": [
+          "H001",
+          "H002",
+          "H003"
+        ],
+        "conditions": [
+          "Lean社区愿意与OpenAI合作",
+          "OpenAI有足够的资源进行合作"
+        ]
+      },
+      {
+        "id": "M1-A003",
+        "actor_id": "A003",
+        "round": 1,
+        "action": "推动Lean 4内核的可信性验证，以增强形式化验证技术在AI数学家系统中的应用",
+        "evidence_ids": [
+          "E003"
+        ],
+        "assumption_ids": [
+          "H003"
+        ],
+        "conditions": [
+          "Lean 4的内核设计哲学得到认可",
+          "科研团队和模型厂商对形式化验证技术的需求增加"
+        ]
+      },
+      {
+        "id": "M1-A004",
+        "actor_id": "A004",
+        "round": 1,
+        "action": "与Lean社区合作优化AI数学家系统",
+        "evidence_ids": [
+          "E004"
+        ],
+        "assumption_ids": [
+          "H004",
+          "H007"
+        ],
+        "conditions": [
+          "Lean社区愿意与Axiom公司合作",
+          "Axiom公司有足够的资源进行合作"
+        ]
+      },
+      {
+        "id": "M2-A001",
+        "actor_id": "A001",
+        "round": 2,
+        "action": "与数学家合作开发更先进的AI工具，以发现拓扑学和表示论中的新猜想",
+        "evidence_ids": [
+          "E001",
+          "E007"
+        ],
+        "assumption_ids": [
+          "H001",
+          "H006"
+        ],
+        "conditions": [
+          "需要数学家的指导",
+          "需要研究资金"
+        ]
+      },
+      {
+        "id": "M2-A002",
+        "actor_id": "A002",
+        "round": 2,
+        "action": "与Lean社区合作开发更强大的形式化验证工具",
+        "evidence_ids": [
+          "E002"
+        ],
+        "assumption_ids": [
+          "H002",
+          "H005"
+        ],
+        "conditions": [
+          "需要数学家的指导",
+          "需要研究资金"
+        ]
+      },
+      {
+        "id": "M2-A003",
+        "actor_id": "A003",
+        "round": 2,
+        "action": "推动Lean 4内核的可信性验证，以增强形式化验证技术在AI数学家系统中的应用",
+        "evidence_ids": [
+          "E003",
+          "E008"
+        ],
+        "assumption_ids": [
+          "H003",
+          "H007"
+        ],
+        "conditions": [
+          "Lean 4内核的可信性验证需要数学家的指导",
+          "需要研究资金"
+        ]
+      },
+      {
+        "id": "M2-A004",
+        "actor_id": "A004",
+        "round": 2,
+        "action": "与Lean社区合作优化AI数学家系统",
+        "evidence_ids": [
+          "E004"
+        ],
+        "assumption_ids": [
+          "H004",
+          "H007"
+        ],
+        "conditions": [
+          "Lean社区愿意提供技术支持",
+          "Axiom公司有足够的资金进行合作"
+        ]
+      }
+    ],
+    "simulation": [
+      {
+        "id": "S1",
+        "round": 1,
+        "summary": "AI工具正在改变数学科研中的猜想提出、证明检验和论文评审。DeepMind等模型厂商已帮助数学家发现新猜想，如拓扑学和表示论中的新猜想。Lean等形式化验证社区正在推动形式化验证技术的应用，如Axiom公司利用Lean开发AI数学家系统。期刊和资助机构也在关注AI在数学科研中的应用，如OpenAI的神经定理证明器成功解出国际奥数题。这些行动将相互影响，形成不同的结果。",
+        "state_changes": {
+          "ai_g猜想发现": "原状态→DeepMind等模型厂商与数学家合作开发更先进的AI工具，以发现拓扑学和表示论中的新猜想；由DeepMind的M1-A001行动通过与数学家合作开发更先进的AI工具造成",
+          "ai证明检验": "原状态→OpenAI与Lean社区合作开发更强大的形式化验证工具；由OpenAI的M1-A002行动通过与Lean社区合作开发更强大的形式化验证工具造成",
+          "lean应用": "原状态→Lean社区推动Lean 4内核的可信性验证，以增强形式化验证技术在AI数学家系统中的应用；由Lean社区的M1-A003行动通过推动Lean 4内核的可信性验证造成",
+          "期刊评审": "原状态→期刊和资助机构关注AI在数学科研中的应用，如OpenAI的神经定理证明器成功解出国际奥数题；由OpenAI的M1-A002行动通过与Lean社区合作开发更强大的形式化验证工具造成",
+          "模型厂商行动": "原状态→模型厂商正在开发AI工具，如DeepSeek-Prover-V2，以解决数学问题；由DeepMind的M1-A001行动通过与数学家合作开发更先进的AI工具造成",
+          "科研团队行动": "原状态→科研团队正在利用AI工具进行数学研究，如DeepMind帮助数学家发现新猜想；由DeepMind的M1-A001行动通过与数学家合作开发更先进的AI工具造成",
+          "资助机构行动": "原状态→资助机构正在支持AI在数学科研中的应用，如Axiom公司获得投资；由Axiom公司的M1-A004行动通过与Lean社区合作优化AI数学家系统造成",
+          "形式化验证社区行动": "原状态→形式化验证社区正在推动形式化验证技术的应用，如Lean的内核设计哲学；由Lean社区的M1-A003行动通过推动Lean 4内核的可信性验证造成",
+          "ai论文评审": "原状态→AI工具正在改变论文评审流程，如DeepSeek-Prover-V2通过融合非正式与形式化推理的优势解决这一问题；由DeepMind的M1-A001行动通过与数学家合作开发更先进的AI工具造成"
+        },
+        "conflicts": [
+          "模型厂商与Lean社区：模型厂商开发AI工具，Lean社区推动形式化验证技术的应用，两者在形式化验证技术的应用上可能存在竞争或合作。",
+          "Axiom公司与Lean社区：Axiom公司利用Lean开发AI数学家系统，而Lean社区推动形式化验证技术的应用，两者在技术应用上可能存在竞争或合作。",
+          "OpenAI与Lean社区：OpenAI需要与Lean社区合作开发更强大的形式化验证工具，而Lean社区可能对合作条件有特定要求，这可能导致合作上的冲突。"
+        ],
+        "unresolved": [
+          "需要数学家的指导",
+          "需要研究资金",
+          "Lean社区是否愿意与OpenAI合作",
+          "Axiom公司是否有足够的资源进行合作",
+          "Lean 4的内核设计哲学是否得到认可"
+        ],
+        "evidence_ids": [
+          "E001",
+          "E002",
+          "E003",
+          "E004",
+          "E005",
+          "E006",
+          "E007",
+          "E008",
+          "E009",
+          "E010"
+        ],
+        "assumption_ids": [
+          "H001",
+          "H002",
+          "H003",
+          "H004",
+          "H005",
+          "H006",
+          "H007"
+        ]
+      },
+      {
+        "id": "S2",
+        "round": 2,
+        "summary": "AI工具在数学科研中的应用正在深化，模型厂商与形式化验证社区的合作推动了形式化验证技术的进展，而期刊和资助机构对AI在数学科研中的应用表现出浓厚兴趣。这些行动相互促进，但也存在资源分配和利益冲突。",
+        "state_changes": {
+          "ai_g猜想发现": "原状态→DeepMind等模型厂商与数学家合作开发更先进的AI工具，以发现拓扑学和表示论中的新猜想；由DeepMind的M2-A001行动通过与数学家合作开发更先进的AI工具造成",
+          "ai证明检验": "原状态→OpenAI与Lean社区合作开发更强大的形式化验证工具；由OpenAI的M2-A002行动通过与Lean社区合作开发更强大的形式化验证工具造成",
+          "lean应用": "原状态→Lean社区推动Lean 4内核的可信性验证，以增强形式化验证技术在AI数学家系统中的应用；由Lean社区的M2-A003行动通过推动Lean 4内核的可信性验证造成",
+          "期刊评审": "原状态→期刊和资助机构关注AI在数学科研中的应用，如OpenAI的神经定理证明器成功解出国际奥数题；由OpenAI的M2-A002行动通过与Lean社区合作开发更强大的形式化验证工具造成",
+          "模型厂商行动": "原状态→模型厂商正在开发AI工具，如DeepSeek-Prover-V2，以解决数学问题；由DeepMind的M2-A001行动通过与数学家合作开发更先进的AI工具造成",
+          "科研团队行动": "原状态→科研团队正在利用AI工具进行数学研究，如DeepMind帮助数学家发现新猜想；由DeepMind的M2-A001行动通过与数学家合作开发更先进的AI工具造成",
+          "资助机构行动": "原状态→资助机构正在支持AI在数学科研中的应用，如Axiom公司获得投资；由Axiom公司的M2-A004行动通过与Lean社区合作优化AI数学家系统造成",
+          "形式化验证社区行动": "原状态→形式化验证社区正在推动形式化验证技术的应用，如Lean的内核设计哲学；由Lean社区的M2-A003行动通过推动Lean 4内核的可信性验证造成",
+          "ai论文评审": "原状态→AI工具正在改变论文评审流程，如DeepSeek-Prover-V2通过融合非正式与形式化推理的优势解决这一问题；由DeepMind的M2-A001行动通过与数学家合作开发更先进的AI工具造成"
+        },
+        "conflicts": [
+          "模型厂商与形式化验证社区之间可能存在资源竞争，因为两者都在推动AI在数学科研中的应用。",
+          "资助机构可能在支持不同AI工具开发时面临选择困难，因为不同模型厂商和社区都有各自的优势。"
+        ],
+        "unresolved": [
+          "是否能够成功整合Lean社区的技术与模型厂商的AI工具，以实现更高效的数学科研。",
+          "期刊和资助机构是否会继续支持AI在数学科研中的应用，取决于AI工具的实际效果和其对数学研究的贡献。"
+        ],
+        "evidence_ids": [
+          "E001",
+          "E002",
+          "E003",
+          "E004",
+          "E005",
+          "E006",
+          "E007",
+          "E008",
+          "E009",
+          "E010"
+        ],
+        "assumption_ids": [
+          "H001",
+          "H002",
+          "H003",
+          "H004",
+          "H005",
+          "H006",
+          "H007"
+        ]
+      }
+    ],
+    "valid_affected_ids": [
+      "A001",
+      "A002",
+      "A003",
+      "A004",
+      "E001",
+      "E002",
+      "E003",
+      "E004",
+      "E005",
+      "E006",
+      "E007",
+      "E008",
+      "E009",
+      "E010",
+      "F001",
+      "F002",
+      "F003",
+      "F004",
+      "F005",
+      "F006",
+      "F008",
+      "H001",
+      "H002",
+      "H003",
+      "H004",
+      "H005",
+      "H006",
+      "H007",
+      "M1-A001",
+      "M1-A002",
+      "M1-A003",
+      "M1-A004",
+      "M2-A001",
+      "M2-A002",
+      "M2-A003",
+      "M2-A004",
+      "S1",
+      "S2"
+    ],
+    "question_framing": {
+      "revision": 1,
+      "proposed_spec": {
+        "question": "以当前公开资料为起点，推演至2027年12月31日：AI工具会怎样改变数学科研中的猜想提出、证明检验和论文评审？关注科研团队、模型厂商、Lean等形式化验证社区及期刊与资助机构：它们能采取什么具体行动，行动如何相互影响，哪些条件下会形成不同结果？范围为全球数学科研生态，不限定单一产品。",
+        "as_of": "2026-10-08T17:42:43.628043Z",
+        "resolve_by": null,
+        "resolution_rule": "",
+        "resolution_source": null,
+        "mode": "scenario",
+        "user_assumptions": []
+      },
+      "clarification_answers": [],
+      "premises": []
+    },
+    "evidence_context_limitations": []
+  },
+  "model": {
+    "role": "review",
+    "schema": {
+      "$defs": {
+        "ReviewIssue": {
+          "properties": {
+            "severity": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "title": "Severity",
+              "type": "string"
+            },
+            "claim": {
+              "title": "Claim",
+              "type": "string"
+            },
+            "explanation": {
+              "title": "Explanation",
+              "type": "string"
+            },
+            "affected_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Affected Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "severity",
+            "claim",
+            "explanation"
+          ],
+          "title": "ReviewIssue",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "qualified",
+            "blocked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "probability_basis": {
+          "default": "full",
+          "enum": [
+            "full",
+            "evidence_only",
+            "none"
+          ],
+          "title": "Probability Basis",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/ReviewIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "unsupported_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Claims",
+          "type": "array"
+        },
+        "missing_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Evidence",
+          "type": "array"
+        },
+        "evidence_audit_model_can_estimate": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Audit Model Can Estimate"
+        },
+        "evidence_audit_can_estimate": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Audit Can Estimate"
+        },
+        "evidence_audit_blocking_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Audit Blocking Reasons",
+          "type": "array"
+        },
+        "evidence_audit_discarded_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Audit Discarded Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "Review",
+      "type": "object"
+    },
+    "instructions": "检查证据是否支持关键判断、遗漏反证和模拟跳步。最多五个重点问题。每个问题的explanation用2–3句定位到具体主体行动、状态变量或因果连接，交代原始依据、推断缺口、会使哪条条件路径更强或更弱，并给出可补充的具体资料。优先审查真正会改变决策或路径排序的缺口；不要重复问题、罗列抽象风险，或用‘没有完整原文’替代对已有来源和两轮变化的分析。审查时关注 evidence_assessment.quality_profile 的来源覆盖和限制；来源组不等于独立认证，来源数量不能自动修改概率或成为 blocked 判据。不要求预测期尚未发生的结果作为证据。affected_ids 只能使用 valid_affected_ids；F 仅用于定位已验证 Finding，不等于新外部证据；禁止 R 检索任务编号。 待核查前提不是事实；P不能作为外部证据。clarification_answers是用户确认的研究范围/任务说明，应遵守其范围，不能当作E外部证据或已核实事实，也不需要再次要求用户确认。 F编号是经过原文校验的Agent 2结构化发现，可在affected_ids中定位审查对象，但F本身不是外部证据；解释支持关系时仍应回到其底层E引用。"
+  },
+  "observed_full_compact_tokens": 16740,
+  "observed_exhausted_fit_tokens": 13639,
+  "model_window": 16384,
+  "reserved_output_tokens": 4096,
+  "provenance": "Frozen public source excerpts, validated citation spans and public structured agent output from run_0602d9067994; no hidden reasoning or credentials. Snapshot files remain outside this fixture.",
+  "projected_messages_sha256": "d77ea71c4bed3a9df9aa68449c5e2320f0fea07b654881515fc310fbe8e915ca",
+  "measured_projected_input_tokens": 10336,
+  "tokenizer_provenance": "Live local CPU /tokenize, qwen3-8b, enable_thinking=false; no model generation.",
+  "before_duplicate_spec_removal_tokens": 10486
+}

@@ -207,3 +207,26 @@
 }
 
 .record-references .finding-reference{flex-basis:100%}
+
+/* Content-bearing cards retain the existing canvas geometry and interaction. */
+.research-desk .node-content{height:calc(100% - 34px);gap:8px;padding:15px 18px;overflow:hidden}
+.research-desk .node-content h3{font-size:18px;line-height:1.45;flex-shrink:0}
+.research-desk .node-content p{font-size:14px;line-height:1.65;-webkit-line-clamp:5;flex-shrink:0}
+.research-desk .node-content .node-subtitle{font-size:11px;line-height:1.5;color:#758270;display:block;white-space:normal}
+.research-desk .node-content .node-quote{-webkit-line-clamp:4;border-left:2px solid #b1c5a5;padding-left:10px;color:#52614d}
+.research-desk .node-probability{font-size:25px;line-height:1.15;color:#176e53;font-variant-numeric:tabular-nums}
+.research-desk .node-facts{display:grid;gap:9px;margin:3px 0 0;width:100%;min-width:0}
+.research-desk .node-facts>div{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:baseline}
+.research-desk .node-facts dt{font-size:11px;line-height:1.7;color:#7b866f;overflow-wrap:anywhere}
+.research-desk .node-facts dd{margin:0;font-size:12px;line-height:1.7;color:#365741;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.research-desk .node-content>span{margin-top:auto;flex-shrink:0}
+.research-desk .compact-node{background:#f5f8f0;border-color:#c8d4bf;box-shadow:none}
+.research-desk .compact-node .node-content h3{font-size:16px;line-height:1.4}
+.research-desk .compact-node .node-content p{font-size:13px;-webkit-line-clamp:3}
+.source-quality-details{margin:24px 0;padding:16px 18px;background:#f2f5ed;border:1px solid #dbe4d3}
+.source-quality-details>summary{cursor:pointer;font-size:14px;color:#526b4e}
+
+.minimap-heading button{border:0;padding:0;background:none;font:inherit;color:inherit;text-align:left;white-space:nowrap}
+.research-desk .node-source-labels{display:grid;gap:2px;flex-shrink:0;font-size:11px;line-height:17px;color:#526a5b;overflow-wrap:anywhere}
+.research-desk .node-source-labels small{font:inherit;display:block}
+.research-desk .node-bar small{white-space:nowrap;opacity:.8}

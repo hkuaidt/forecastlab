@@ -8,6 +8,10 @@ from app.schemas import QuestionSpec, RetrievalTask, utcnow
 def test_brave_snippet_snapshot(monkeypatch, tmp_path):
     monkeypatch.setattr(S.config, "BRAVE_SEARCH_API_KEY", "test-secret")
     monkeypatch.setattr(S.config, "SEARCH_PROXY", "")
+    from app import source_fetch
+    async def unavailable(urls):
+        return [(None, {"status": "unavailable", "reason": "http_403"}) for _ in urls]
+    monkeypatch.setattr(source_fetch, "fetch_selected_bodies", unavailable)
     def handle(request):
         assert request.url.host == "api.search.brave.com"
         assert request.headers["X-Subscription-Token"] == "test-secret"

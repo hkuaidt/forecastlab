@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { contentNature, savedSourceAction, sourceForm, sourceReferenceLabel } from '../contentLabels'
 import type { Evidence, EvidenceAssessment, FindingCitation, QuestionFraming } from '../types'
 
 export function sliceCodepoints(text: string, start: number, end: number): string { return Array.from(text).slice(start, end).join('') }
@@ -6,9 +7,9 @@ const relations: Record<string, string> = { supports: '支持', challenges: '挑
 export function SourceLimitations({ evidence: e }: { evidence: Evidence }) {
   return <div className="source-limitations">
     {e.date_status === 'synthetic' && <span>教学虚构材料</span>}
-    {(e.content_kind === 'snippet' || e.source_type === 'snippet_only') && <span>只有搜索摘要，未取得正文</span>}
+    {(sourceForm(e) === 'snippet') && <span>只有搜索摘要，未取得正文</span>}
     {!e.published_at && <span>发布时间未知</span>}
-    {e.content_truncated && <span>正文已截断，不是完整原文</span>}
+    {e.content_truncated && <span>保存文本有截断，不是完整原文</span>}
     {e.availability === 'historical_exercise' && <span>历史回看·非盲测</span>}
     {e.event_status === 'planned' && <span>未来计划，不是已发生的事件</span>}
   </div>
@@ -27,8 +28,8 @@ export function EvidenceFindingsPanel({ framing, assessment, evidence, onInspect
   const quality = assessment?.quality_profile
   const stateMatches = (id: string) => {
     const e = sources.get(id)
-    return !sourceState || !!e && (sourceState === 'snippet' ? e.content_kind === 'snippet' || e.source_type === 'snippet_only' :
-      sourceState === 'date_unknown' ? !e.published_at : sourceState === 'truncated' ? !!e.content_truncated : e.content_kind === 'body')
+    return !sourceState || !!e && (sourceState === 'snippet' ? sourceForm(e) === 'snippet' :
+      sourceState === 'date_unknown' ? !e.published_at : sourceState === 'truncated' ? !!e.content_truncated : sourceForm(e) === 'body')
   }
   const visible = (assessment?.findings || []).filter(f => (!premise || f.target_premise_ids.includes(premise)) && (!relation || f.relation === relation) && f.citations.some(c => stateMatches(c.evidence_id)))
   return <section className="panel findings-panel" aria-label="逐项证据发现">
@@ -63,8 +64,8 @@ export function EvidenceFindingsPanel({ framing, assessment, evidence, onInspect
       </div>
       <div data-testid="valid-findings" className="finding-list">{visible.length ? visible.map(f => <article className="finding-card" key={f.id}>
         <div className="premise-header"><span className="id-chip">{f.id}</span><span className={`finding-relation relation-${f.relation}`}>{relations[f.relation] || f.relation}</span><small>针对 {f.target_premise_ids.join('、') || '研究问题背景'}</small></div>
-        <h4>{f.claim}</h4>{f.citations.map((c,i) => <div className="finding-citation" key={`${c.evidence_id}-${i}`}><blockquote>{c.quote}</blockquote>
-          <button className="text-button" onClick={() => onInspectCitation(c)}>查看 {c.evidence_id} 原文</button><small>段落 {c.paragraph_id}</small>
+        <p className="subtle">{contentNature.finding}</p><h4>{f.claim}</h4>{f.citations.map((c,i) => <div className="finding-citation" key={`${c.evidence_id}-${i}`}><small>{sourceReferenceLabel(c.evidence_id,sources.get(c.evidence_id))}</small><blockquote>{c.quote}</blockquote>
+          <button className="text-button" onClick={() => onInspectCitation(c)}>{savedSourceAction(sources.get(c.evidence_id))} · {c.evidence_id}</button><small>段落 {c.paragraph_id}</small>
           {sources.get(c.evidence_id) && <SourceLimitations evidence={sources.get(c.evidence_id)!}/>}</div>)}
         {f.limitation && <p className="finding-limitation">不能据此证明：{f.limitation}</p>}
       </article>) : <p className="empty-note">{assessment ? '当前条件下没有可展示的有效发现。未找到反证不等于原观点成立。' : '等待证据阶段完成。'}</p>}</div>
@@ -79,7 +80,7 @@ export function EvidenceFindingsPanel({ framing, assessment, evidence, onInspect
           <p>{c.scope_comparison}</p><p>{c.explanation}</p><small>关联发现：{c.finding_ids.join('、')}</small>
           {related.size > 0 && <div className="conflict-source-links"><span>关联来源：</span>{Array.from(related.values()).map(citation =>
             <button type="button" className="text-button" key={citation.evidence_id} onClick={() => onInspectCitation(citation)}>
-              {citation.evidence_id} · {sources.get(citation.evidence_id)?.title || '查看原文'}
+              {citation.evidence_id} · {sources.get(citation.evidence_id)?.title || '来源记录缺失'} · {savedSourceAction(sources.get(citation.evidence_id))}
             </button>)}</div>}
         </article>
       })}</div>}
