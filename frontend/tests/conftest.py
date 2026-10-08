@@ -53,7 +53,7 @@ def page(browser, request):
     context = browser.new_context(viewport={"width": 1365, "height": 1000})
     page = context.new_page(); page.set_default_timeout(5000)
     yield page
-    directory = ROOT / "docs/agent12/validation-artifacts/screenshots"
+    directory = ROOT / "experiment/validation/screenshots"
     directory.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(directory / (request.node.name + ".png")), full_page=True)
     context.close()

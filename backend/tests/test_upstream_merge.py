@@ -1,7 +1,7 @@
 """Merge regression checks for upstream v3/v4 work and full ForecastLab path.
 
 The repository's normal browser suite separately verifies that the product
-entry is the complete forecast flow, not an Agent 1/2-only introduction.
+entry is the complete forecast flow, not an 问题定义与证据评估-only introduction.
 """
 from app import config
 from app.graph import finding_evidence_map, resolve_refs

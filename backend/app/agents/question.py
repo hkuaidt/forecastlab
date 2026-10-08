@@ -1,4 +1,4 @@
-"""Agent 1: produce a candidate, then apply deterministic ownership checks."""
+"""问题分析: produce a candidate, then apply deterministic ownership checks."""
 from __future__ import annotations
 import re
 from uuid import uuid4
@@ -55,7 +55,7 @@ def analyze_question(request: AnalyzeQuestionRequest, previous: QuestionFraming 
                "answers": [a.model_dump() for a in request.answers],
                "validation_feedback": validation_feedback}
     # One transport attempt here; the service owns the single shared repair attempt.
-    return model.complete("question12", payload, FramingCandidate, PROMPT, attempt_limit=1)
+    return model.complete("question_framing", payload, FramingCandidate, PROMPT, attempt_limit=1)
 
 
 _SCOPE_RESTATEMENT = re.compile(

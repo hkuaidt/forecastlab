@@ -1,4 +1,4 @@
-"""Score agreement between two human Agent 2 finding audits."""
+"""Score agreement between two human 证据评估 finding audits."""
 from __future__ import annotations
 import argparse
 from collections import Counter

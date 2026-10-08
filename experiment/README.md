@@ -3,6 +3,21 @@
 本目录汇总各轮评测实验。**差异部分**（每轮的套件、证据包、结果、报告）放在各自子文件夹；
 **公共部分**（本说明、离线校验器）放在本层。
 
+## 问题、证据与全流程补充实验
+
+下列目录保存原始评测结果和对应报告；可复用执行工具位于根目录的 `eval/`。命令默认从仓库根目录运行。
+
+| 范围 | 实验 |
+| --- | --- |
+| 问题分析稳健性 | [中性与引导性问题对照](question-framing/2026-10-07-robustness/report.md) |
+| 证据质量 | [语义审计](evidence-quality/2026-10-07-semantic/report.md)、[真实检索](evidence-quality/2026-10-07-live-retrieval/report.md) |
+| 引文边界 | [第一轮](evidence-quality/2026-10-08-boundary-v1/report.md)、[第二轮](evidence-quality/2026-10-08-boundary-v2/report.md) |
+| 语义蕴含 | [基准实验](evidence-quality/2026-10-08-entailment-benchmark/report.md)、[判定器评测](evidence-quality/2026-10-08-entailment-judge/report.md) |
+| 完整预测流程 | [覆盖率修复评测](forecasting/2026-10-06-coverage/report.md)、[多臂评测](forecasting/2026-10-07-multi-arm/report.md)、[真实 HTTP E2E](forecasting/2026-10-07-live-e2e/report.md) |
+| 软件验证 | [历史验证记录](validation/2026-09-30/README.md)、[本地模型结果](validation/local-model/)、[本次清理验证](validation/2026-10-09-cleanup/verification.json) |
+
+原始 JSON 和日志保持生成时内容，包括当时的角色简称、提示版本和路径；当前工具及文档链接使用整理后的路径。v1 重复的 27 个数据文件已统一到 `v1-2026-10-04/`，两份不同的补充说明分别保留为 [说明](v1-2026-10-04/integration-readme.md) 和 [报告](v1-2026-10-04/integration-report.md)。固定输出、模拟审阅者和真实模型结果仍沿用各报告中的明确标注，不能混作真实质量结论。
+
 ## 背景（协作者速览）
 
 **被评测的系统**：ForecastLab，一条"证据优先"的二元事件预测流水线，一次运行分六个阶段——

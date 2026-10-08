@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { DRAFT_STORAGE_KEY as KEY, migrateDraftStorage } from './draftStorage'
 import type { ClarificationAnswer, PremiseDecision, QuestionConfirmation, QuestionDraft, QuestionDraftView, QuestionFraming } from '../types'
 
 export type QuestionFields = { question: string; asOf: string; resolveBy: string; resolutionRule: string; resolutionSource: string; mode: 'binary' | 'scenario'; assumptions: string }
@@ -13,10 +14,10 @@ export function fieldsFromSpec(q: QuestionDraft): QuestionFields {
     resolutionRule: q.resolution_rule, resolutionSource: q.resolution_source || '', mode: q.mode, assumptions: q.user_assumptions.join('\n') }
 }
 const signature = (fields: QuestionFields) => JSON.stringify(fields)
-const KEY = 'forecastlab.agent12.draft_id'
 type AnalyzeBody = { question: QuestionDraft; draft_id?: string; expected_revision?: number; operation_id: string; answers: ClarificationAnswer[]; demo_case_id?: string }
 
 export function useQuestionFraming(fields: QuestionFields, applyFields: (next: QuestionFields) => void, onError: (message: string) => void) {
+  useEffect(migrateDraftStorage, [])
   const [framing, setFraming] = useState<QuestionFraming | null>(null)
   const [confirmationId, setConfirmationId] = useState<string | null>(null)
   const [analyzedSignature, setAnalyzedSignature] = useState<string | null>(null)

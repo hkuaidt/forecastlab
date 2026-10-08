@@ -1,4 +1,4 @@
-"""Create a blind second-reviewer packet from an Agent 2 finding audit sample."""
+"""Create a blind second-reviewer packet from an 证据评估 finding audit sample."""
 from __future__ import annotations
 import argparse
 from datetime import datetime, timezone

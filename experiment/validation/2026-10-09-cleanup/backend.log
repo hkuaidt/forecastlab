@@ -1,0 +1,14 @@
+........................................................................ [ 36%]
+........................................................................ [ 73%]
+.....................................................                    [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8
+  <checkout>/.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+.venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  <checkout>/.venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+197 passed, 2 warnings in 3.36s

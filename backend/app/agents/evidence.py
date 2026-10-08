@@ -1,4 +1,4 @@
-"""Agent 2: source-backed findings, with one shared repair budget."""
+"""证据评估: source-backed findings, with one shared repair budget."""
 from __future__ import annotations
 import re
 from ..schemas import (AssessmentCandidate, EvidenceAssessment, EvidenceFinding, RejectedFinding,
@@ -239,7 +239,7 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
                 e.snapshot_path, e.snapshot_hash = snapshot.snapshot_path, snapshot.snapshot_hash
                 e.retrieved_at = snapshot.stored_at
                 e.availability = "synthetic" if e.date_status == "synthetic" else "unverified"
-            # Full snapshots remain server-side; Agent 2 sees only the most relevant bounded passages.
+            # Full snapshots remain server-side; 证据评估 sees only the most relevant bounded passages.
             # This keeps live-web pages from exhausting the structured-output budget.
             e.passages = select_passages(split_passages(snapshot), terms, limit=1400)
             good_sources.append(e)
@@ -258,7 +258,7 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
     candidate = None
     for attempt in range(2):
         try:
-            candidate = model.complete("evidence12", payload, AssessmentCandidate, PROMPT, attempt_limit=1)
+            candidate = model.complete("evidence_assessment", payload, AssessmentCandidate, PROMPT, attempt_limit=1)
             findings, rejected = validate_findings(candidate, framing, good_sources, passages)
             conflicts, gaps, more_rejected = _details(candidate, findings, framing, retrieval.retrieval_log, question)
             rejected += more_rejected

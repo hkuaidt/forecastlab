@@ -1,4 +1,4 @@
-"""Local-only blind-review UI for Agent 2 finding audits."""
+"""Local-only blind-review UI for 证据评估 finding audits."""
 from __future__ import annotations
 
 import argparse
@@ -74,7 +74,7 @@ HTML = r'''<!doctype html>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:#f5f7f4;color:#18342d;margin:0}.wrap{max-width:1000px;margin:0 auto;padding:28px}.top{display:flex;justify-content:space-between;gap:20px;align-items:center}.card{background:#fff;border:1px solid #dfe8df;border-radius:12px;padding:24px;margin:18px 0;box-shadow:0 5px 18px #2349360b}.meta{font-size:12px;color:#71877c}.claim{font-size:20px;line-height:1.6}.quote{background:#f2f7f2;border-left:4px solid #83b89a;padding:15px 18px;margin:12px 0;white-space:pre-wrap;line-height:1.7}.source{font-size:12px;color:#71877c}.limit{color:#765b32;background:#fff7e9;padding:12px;border-radius:7px}.labels{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.labels button{padding:13px;border:1px solid #cddbd0;background:#fff;border-radius:8px;font-weight:650;cursor:pointer}.labels button.on{background:#0b7768;color:#fff;border-color:#0b7768}textarea{box-sizing:border-box;width:100%;min-height:90px;border:1px solid #d5e1d8;border-radius:8px;padding:12px;margin:14px 0}.nav{display:flex;justify-content:space-between;gap:12px}.nav button{padding:10px 18px;border:0;border-radius:7px;background:#e5eee7;cursor:pointer}.save{background:#0b7768!important;color:#fff}.progress{font-weight:700}.hint{font-size:12px;color:#7d8f86}@media(max-width:700px){.labels{grid-template-columns:1fr 1fr}.wrap{padding:15px}.claim{font-size:17px}}
 </style></head><body><div class="wrap">
-<div class="top"><div><h1>Agent 2 · 第二位盲审</h1><div class="hint">只判断 claim 是否被 exact quote 直接支持；不要使用外部知识。</div></div><div class="progress" id="progress"></div></div>
+<div class="top"><div><h1>证据评估 · 第二位盲审</h1><div class="hint">只判断 claim 是否被 exact quote 直接支持；不要使用外部知识。</div></div><div class="progress" id="progress"></div></div>
 <div class="card"><div class="meta" id="meta"></div><div class="claim" id="claim"></div><div id="quotes"></div><div class="limit" id="limit"></div></div>
 <div class="labels" id="labels"></div><textarea id="notes" placeholder="简短说明判断理由（建议填写）"></textarea>
 <div class="nav"><button id="prev">← 上一条</button><button class="save" id="save">保存并下一条 →</button><button id="next">下一条 →</button></div>

@@ -4,6 +4,7 @@ import hashlib
 import json
 from uuid import uuid4
 from . import config
+from .compat import canonical_demo_case_id
 from .agents.question import analyze_question, finalize_framing
 from .llm import ModelClient, BudgetExceeded
 from .schemas import AnalyzeQuestionRequest, QuestionFraming, ConfirmQuestionRequest, AnalysisRecord
@@ -31,7 +32,7 @@ class QuestionService:
 
     def analyze(self, request: AnalyzeQuestionRequest) -> QuestionFraming:
         if request.demo_case_id:
-            from .agent12_demo import validate_demo_request
+            from .question_evidence_demo import validate_demo_request
             validate_demo_request(request)
         if self.requires_key and not request.demo_case_id and not config.MODEL_API_KEY:
             raise ModelNotConfigured("未配置模型密钥；真实问题不能使用固定答案代替分析。可使用教学演示。")
@@ -51,7 +52,7 @@ class QuestionService:
         if request.draft_id:
             view = self.get(request.draft_id)
             previous = view.confirmation.framing if view.confirmation else view.framing
-            if previous.demo_case_id != request.demo_case_id:
+            if canonical_demo_case_id(previous.demo_case_id) != canonical_demo_case_id(request.demo_case_id):
                 raise ValueError("教学与真实模式不能沿用同一草稿，请创建新问题")
             if previous.revision != request.expected_revision:
                 raise VersionConflict("草稿已被修改，请重新加载后分析")
@@ -69,7 +70,7 @@ class QuestionService:
                      "completion_tokens": sum(c.completion_tokens for c in calls)}
             model_factory = self.model_factory
             if request.demo_case_id:
-                from .agent12_demo import QuestionFixtureModel
+                from .question_evidence_demo import QuestionFixtureModel
                 model_factory = lambda **kwargs: QuestionFixtureModel()
             model = model_factory(initial_usage=usage, initial_active_seconds=sum(c.elapsed_seconds for c in calls),
                 call_limit=6, on_reserve=lambda h, v: self.store.reserve_call(owner, "preparation", call_limit=6,

@@ -118,7 +118,7 @@ class FramingCandidate(StrictModel):
 
 class AnalysisRecord(StrictModel):
     model: str = "unknown"
-    prompt_version: str = "agent12-v1"
+    prompt_version: str = "question-evidence-v1"
     input_hash: str = ""
     request_ids: list[str] = Field(default_factory=list)
     elapsed_seconds: float = Field(default=0, ge=0)
@@ -202,7 +202,7 @@ class ModelCallRecord(StrictModel):
     attempt: int = Field(default=1, ge=1)
     status: Literal["reserved", "succeeded", "failed", "interrupted"] = "reserved"
     model: str = "unknown"
-    prompt_version: str = "agent12-v1"
+    prompt_version: str = "question-evidence-v1"
     input_hash: str
     started_at: datetime = Field(default_factory=utcnow)
     elapsed_seconds: float = Field(default=0, ge=0)

@@ -1,7 +1,7 @@
 """Build a larger hard-negative entailment benchmark from prior human-role audits.
 
 The benchmark combines unique natural labelled claim/quote pairs from five historical
-Agent 2 audits, then creates exactly one controlled contradiction for every natural
+证据评估 audits, then creates exactly one controlled contradiction for every natural
 supported row. Generated negatives alter the claim only; exact quotes stay frozen.
 
 This avoids LLM-generated gold labels and makes every synthetic negative reproducible.
@@ -18,11 +18,11 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 SOURCES = [
-    "experiment-2026-10-08-agent2-boundary-v2/results/reviewer2-labeled.json",
-    "experiment-2026-10-08-agent2-boundary-v1/results/reviewer2-labeled.json",
-    "experiment-2026-10-07-agent12-semantic/results/agent2-audit-labeled-after.json",
-    "experiment-2026-10-07-agent12-semantic/results/agent2-audit-labeled-before.json",
-    "experiment-2026-10-07-agent12-robustness/results/agent2-finding-quote-audit-labeled.json",
+    "experiment/evidence-quality/2026-10-08-boundary-v2/results/reviewer2-labeled.json",
+    "experiment/evidence-quality/2026-10-08-boundary-v1/results/reviewer2-labeled.json",
+    "experiment/evidence-quality/2026-10-07-semantic/results/evidence-audit-labeled-after.json",
+    "experiment/evidence-quality/2026-10-07-semantic/results/evidence-audit-labeled-before.json",
+    "experiment/question-framing/2026-10-07-robustness/results/evidence-finding-quote-audit-labeled.json",
 ]
 
 TEST_CASES = {
@@ -255,7 +255,7 @@ def build() -> dict:
     return {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "description": "ForecastLab Agent 2 exact-quote entailment benchmark: natural human-role audit pairs plus reproducible controlled contradictions.",
+        "description": "ForecastLab 证据评估 exact-quote entailment benchmark: natural human-role audit pairs plus reproducible controlled contradictions.",
         "source_files": SOURCES,
         "row_count": len(rows),
         "label_counts": counts,
@@ -268,8 +268,8 @@ def build() -> dict:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--output", type=Path, default=ROOT / "eval/benchmarks/agent2-entailment-hard-v1.json")
-    p.add_argument("--post-boundary-output", type=Path, default=ROOT / "eval/benchmarks/agent2-entailment-post-boundary-v1.json")
+    p.add_argument("--output", type=Path, default=ROOT / "eval/benchmarks/evidence-entailment-hard-v1.json")
+    p.add_argument("--post-boundary-output", type=Path, default=ROOT / "eval/benchmarks/evidence-entailment-post-boundary-v1.json")
     args = p.parse_args()
     natural = load_natural()
     result = build()

@@ -1,4 +1,4 @@
-"""Conservative, deterministic evidence-coverage summary for the existing Agent 2 stage.
+"""Conservative, deterministic evidence-coverage summary for the existing 证据评估 stage.
 
 This module never verifies a source's independence, publisher, truthfulness, or
 semantic entailment. It summarizes the already-validated run evidence and logs.

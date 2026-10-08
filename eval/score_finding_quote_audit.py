@@ -1,4 +1,4 @@
-"""Score a manually labelled Agent 2 Finding -> exact quote audit sheet."""
+"""Score a manually labelled 证据评估 Finding -> exact quote audit sheet."""
 from __future__ import annotations
 import argparse
 import json
