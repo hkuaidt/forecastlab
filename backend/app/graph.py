@@ -10,12 +10,14 @@ from .schemas import (QuestionSpec, QuestionAnalysis, Evidence, EvidenceAssessme
                       WorldState, ActorAction, SimulationStep, Review, ReviewIssue, Forecast,
                       EvidenceOnlyForecast, RunRecord, utcnow)
 from .sources import online_search, retrieve_evidence
-from .schemas import RetrievalResult, RetrievalLog, Assumption
+from .schemas import RetrievalResult, RetrievalLog, RetrievalTask, Assumption
 from .agents.evidence import (assess_evidence, active_framing, make_evidence_context, EvidenceStageError)
 from .llm import unique_request_count, request_active_seconds
 from .llm import BudgetExceeded, ModelClient
 from .demo import demo_output
 from . import config
+from .cutoff_gaps import is_future_outcome_gap
+from .resume import restore_legacy_evidence_stage
 
 
 class FlowState(TypedDict, total=False):
@@ -52,22 +54,7 @@ def available_at_cutoff(evidence: Evidence, as_of) -> bool:
 
 def mistakes_future_outcome_for_missing_evidence(text: str, question: QuestionSpec,
                                                  *, assume_missing: bool = False) -> bool:
-    """Catch the common error of demanding observations from the forecast period."""
-    if not assume_missing and not re.search(r"缺少|缺失|不足|尚未|未知|无法|不能|没有|未有|未发生|未提供|不具备", text):
-        return False
-    if re.search(r"未来(?:的)?(?:结果|行情|数据|信息)|预测期|结算(?:日|时|结果)|截至日之后|截止日之后|后续(?:的)?(?:行情|数据|结果)|最终(?:结果|行情|冠军|积分榜|排名|名次)|冠军结果|赛季最终(?:积分榜|排名|名次)|决赛(?:的)?(?:实际)?(?:比赛)?结果|实际收盘(?:价|点位)|结果日(?:数据|行情)", text):
-        return True
-    for match in re.finditer(r"(?:(\d{4})\s*[年/-]\s*)?(\d{1,2})\s*[月/-]\s*(?:(\d{1,2})\s*日?)?", text):
-        year = int(match.group(1)) if match.group(1) else question.as_of.year
-        month = int(match.group(2))
-        day = int(match.group(3)) if match.group(3) else None
-        if not 1 <= month <= 12:
-            continue
-        if (year, month) > (question.as_of.year, question.as_of.month):
-            return True
-        if day is not None and (year, month, day) > (question.as_of.year, question.as_of.month, question.as_of.day):
-            return True
-    return False
+    return is_future_outcome_gap(text, question, assume_missing=assume_missing)
 
 
 def nonblocking_audit_reason(reason: str, question: QuestionSpec, evidence: list[Evidence]) -> bool:
@@ -76,13 +63,14 @@ def nonblocking_audit_reason(reason: str, question: QuestionSpec, evidence: list
         return True
     cutoff_verified = bool(evidence) and all(e.availability == "verified_before_cutoff" for e in evidence)
     if cutoff_verified and re.search(r"(?:证据|资料).*(?:仅|只).*?(?:覆盖|包含).*?(?:截点|截至日|信息截点).*?(?:及以前|及之前|之前|当日)", reason):
-        if not re.search(r"缺少|不足|无法|不能|没有|未提供|不支持|无关", reason):
+        if not re.search(r"缺少|缺失|不足|无法|不能|没有|未提供|不支持|无关|尚未|未知|不具备", reason):
             return True
     if cutoff_verified and re.search(
         r"历史练习|事后整理|非(?:当时)?冻结|盲回测|回看偏差|source_type\s*=\s*exercise|date_status\s*(?:为|=)\s*unknown",
         reason, re.I,
     ):
         substantive_quality = re.search(
+            r"缺少|缺失|不足|没有|未提供|不支持|无关|尚未|未知|无法|不能|不具备|"
             r"次级来源|非\s*(?:LBMA|官方|权威)|来源可靠性|来源质量|口径|交叉校验|无法核查|内容不支持|与目标.*(?:无关|弱相关)",
             reason, re.I,
         )
@@ -412,18 +400,26 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
 
     def evidence_node(state: FlowState):
         question = QuestionSpec.model_validate(state["question"])
-        if record.question_framing or record.retrieval_result is not None:
+        if record.question_framing or record.retrieval_result is not None or (record.evidence_mode == "online" and not record.demo):
             retrieval = record.retrieval_result
             if retrieval is None and record.evidence_mode == "online":
+                if record.question_framing:
+                    tasks = record.question_framing.retrieval_plan
+                else:
+                    queries = QuestionAnalysis.model_validate(state["question_analysis"]).search_queries
+                    queries = list(dict.fromkeys(q[:400] for q in queries[:3] if q.strip()))
+                    tasks = [RetrievalTask(id=f"R{i+1:03}", query=query, purpose="background")
+                             for i, query in enumerate(queries)]
+                tasks = tasks or [RetrievalTask(id="R001", query=question.question[:400], purpose="background")]
                 if record.retrieval_started:
                     retrieval = RetrievalResult(status="failed", retrieval_log=[RetrievalLog(task_id=t.id, query=t.query,
                         purpose=t.purpose, status="failed", error="上次取证中断；本运行不重复花费检索额度，请创建新运行")
-                        for t in record.question_framing.retrieval_plan])
+                        for t in tasks])
                 else:
                     record.retrieval_started = True
                     if store:
                         store.save(record)
-                    retrieval = retrieve_evidence(question, record.question_framing.retrieval_plan, data_dir)
+                    retrieval = retrieve_evidence(question, tasks, data_dir)
             retrieval = retrieval or RetrievalResult(evidence=[e.model_copy(deep=True) for e in imported])
             record.retrieval_result = retrieval
             if store:
@@ -881,6 +877,17 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
     current_stage = stage_names[0]
     stage_started = time.monotonic()
     try:
+        if resume:
+            current_stage = "evidence"
+            restore_legacy_evidence_stage(record, store.directory)
+            # Resume can skip world/review entirely. Enforce the evidence gate
+            # before choosing a later checkpoint or constructing a model client.
+            # The persisted stage, not a possibly stale top-level copy, is authoritative.
+            saved_stage = record.stage_outputs.get("evidence")
+            saved_assessment = saved_stage.get("evidence_assessment") if isinstance(saved_stage, dict) else None
+            if (isinstance(saved_assessment, dict) and saved_assessment.get("findings")
+                    and saved_assessment.get("findings_validated") is not True):
+                raise ValueError("保存的证据发现未经过原文校验，不能继续后续阶段；已保留原记录，请重新导入原文创建运行。")
         if record.demo:
             model = None
         elif record.question_framing:

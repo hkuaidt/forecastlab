@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.agents.evidence import _future_information_gap, _source_gaps
 from app.graph import available_at_cutoff, mistakes_future_outcome_for_missing_evidence, sanitize_review_issue_ids
@@ -44,7 +44,12 @@ def test_live_near_cutoff_is_usable_but_unverified_is_not():
 
 
 def test_future_final_table_is_not_an_evidence_gap():
-    q = binary_question()
+    q = QuestionSpec(
+        question="阿森纳是否会在本赛季最终排名前四？",
+        as_of=datetime(2026, 9, 30, tzinfo=timezone.utc),
+        resolve_by=datetime(2027, 6, 30, tzinfo=timezone.utc),
+        resolution_rule="最终积分榜前四为是，否则为否。",
+    )
     gap = GapDetail(missing="英超官网发布的 2026/27 赛季最终积分榜原文。")
     assert _future_information_gap(gap, q) is True
     assert mistakes_future_outcome_for_missing_evidence("缺少赛季最终积分榜", q, assume_missing=True) is True

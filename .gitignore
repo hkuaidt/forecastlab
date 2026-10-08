@@ -17,3 +17,6 @@ docs/agent12/validation-artifacts/screenshots/
 
 # Generated Agent 1–2 fixture evaluation output
 /fixture-eval.json
+
+# Checkout-local server PID, lock and log files.
+/.forecastlab/

@@ -59,19 +59,34 @@ def analyze_question(request: AnalyzeQuestionRequest, previous: QuestionFraming 
 
 
 _SCOPE_RESTATEMENT = re.compile(
-    r"^(?:研究对象|研究问题|问题关注|该问题关注|该问题研究|判定(?:对象|标准|条件|事件|时间|截止|口径)|"
+    r"^(?:(?:研究对象|研究问题|判定(?:对象|标准|条件|事件|时间|截止|口径)|"
     r"时间(?:截止|窗口|范围)|截止(?:时间|日期|时点)|比较(?:的)?(?:两个)?(?:时点|日期)|比较(?:对象|基准|方式)|"
-    r"该问题为二元|问题为二元|结果条件|结算(?:时间|日期|规则|来源)|数据来源|研究模式)"
+    r"结果条件|结算(?:时间|日期|规则|来源)|数据来源|研究模式)\s*(?:是|为|[:：])\s*|"
+    r"判定标准(?:包含|包括|要求)\s*)"
 )
+_QUESTION_RESTATEMENT = re.compile(r"^(?:该)?问题(?:关注|研究|为二元)")
 _ENTITY_EXISTENCE = re.compile(
     r"^(?:存在(?:一个|一家|一支|一项|一场).*?(?:项目|公司|指数|峰会|大会|法案|任务|球队|赛事)|该研究对象存在)"
 )
 
 
-def question_spec_restatement(premise) -> bool:
-    """Reject obvious question-schema restatements without guessing about real-world facts."""
+def _statement_text(text: str) -> str:
+    return re.sub(r"\s+", "", text).rstrip("。.!！;；")
+
+
+def question_spec_restatement(premise, spec: QuestionDraft | None = None) -> bool:
+    """Reject recognizable schema restatements, not facts sharing a field's subject."""
     content = premise.content.strip()
-    if _SCOPE_RESTATEMENT.search(content) or _ENTITY_EXISTENCE.search(content):
+    scope = _SCOPE_RESTATEMENT.search(content)
+    if scope or _QUESTION_RESTATEMENT.search(content) or _ENTITY_EXISTENCE.search(content):
+        # A literal user assertion such as "数据来源是伪造的" is not necessarily
+        # metadata. Only discard it when it repeats an actual question-field value.
+        statement = _statement_text(content)
+        if premise.origin == "user_explicit" and statement in _statement_text(premise.original_span):
+            values = (spec.question, spec.resolution_rule, spec.resolution_source, spec.mode,
+                      spec.as_of.isoformat(), spec.resolve_by.isoformat() if spec.resolve_by else None) if spec else ()
+            value = _statement_text(content[scope.end():]) if scope else statement
+            return bool(value) and any(value == _statement_text(item) for item in values if item)
         return True
     if premise.origin == "model_inferred" and re.search(r"(?:二元(?:判定|问题|模式)|是/否|是否.*二元)", content):
         return True
@@ -114,7 +129,7 @@ def finalize_framing(candidate: FramingCandidate, request: AnalyzeQuestionReques
     for candidate_index, c in enumerate(candidate.premises):
         if c.source_input_id not in texts or c.original_span not in texts[c.source_input_id]:
             raise ValueError("候选前提的原话未出现在指定用户输入中")
-        if question_spec_restatement(c):
+        if question_spec_restatement(c, request.question):
             continue
         exact = next((p for p in old if (p.content, p.original_span, p.source_input_id, p.origin) ==
                       (c.content, c.original_span, c.source_input_id, c.origin)), None)

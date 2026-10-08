@@ -6,6 +6,7 @@ from ..schemas import (AssessmentCandidate, EvidenceAssessment, EvidenceFinding,
 from ..provenance import load_snapshot, save_snapshot, split_passages, select_passages, resolve_citation
 from ..llm import BudgetExceeded
 from ..evidence_quality import build_quality_profile
+from ..cutoff_gaps import is_future_outcome_gap
 
 PROMPT = """只依据提供的原文段落整理证据，不能用模型记忆补来源或结论。
 每个finding必须有来源E编号、快照hash、段落编号和逐字原文quote。若存在活动前提P，可在target_premise_ids中指向相关P；
@@ -148,22 +149,9 @@ def validate_findings(candidate, framing, evidence, passages):
 
 
 def _future_information_gap(gap, question) -> bool:
-    """A gap is not a pre-cutoff evidence gap when it asks for future resolution-period information."""
-    if gap.topic == "future_outcome":
-        return True
-    text = gap.missing
-    if re.search(r"最终(?:结果|冠军|积分榜|排名|名次)|冠军结果|赛季最终(?:积分榜|排名|名次)|决赛(?:的)?(?:实际)?(?:比赛)?结果|实际收盘(?:价|点位)|结果日(?:数据|行情)|结算(?:日|时|结果)", text):
-        return True
-    for match in re.finditer(r"(?:(\d{4})\s*[年/-]\s*)?(\d{1,2})\s*[月/-]\s*(?:(\d{1,2})\s*日?)?", text):
-        year = int(match.group(1)) if match.group(1) else question.as_of.year
-        month = int(match.group(2)); day = int(match.group(3)) if match.group(3) else None
-        if not 1 <= month <= 12:
-            continue
-        if (year, month) > (question.as_of.year, question.as_of.month):
-            return True
-        if day is not None and (year, month, day) > (question.as_of.year, question.as_of.month, question.as_of.day):
-            return True
-    return False
+    """Ignore a model-authored topic label unless its text confirms a future gap."""
+    return is_future_outcome_gap(gap.missing, question, assume_missing=True)
+
 
 def _details(candidate, findings, framing, logs, question):
     ids = {f.id for f in findings}
