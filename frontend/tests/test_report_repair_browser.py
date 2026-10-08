@@ -173,3 +173,25 @@ def test_followup_report_links_to_parent_without_repair_metadata(page, app_url):
     expect(page.get_by_role("link", name="查看原始研究 ↗", exact=True)).to_have_attribute(
         "href", "#/research/run_original/report")
     expect(page.get_by_role("link", name="查看原始记录 ↗", exact=True)).to_have_count(0)
+
+
+@pytest.mark.parametrize("terminal_status,label", [("completed", "已完成"), ("failed", "执行失败")])
+def test_polling_syncs_terminal_run_into_sidebar_and_history(page, app_url, terminal_status, label):
+    running = deepcopy(RUN)
+    running.update({"status": "running", "stage": "simulation", "finished_at": None})
+    terminal = deepcopy(running)
+    terminal.update({"status": terminal_status, "stage": "done", "finished_at": "2026-10-08T09:00:00Z",
+                     "failed_stage": "simulation" if terminal_status == "failed" else None})
+    # Keep the list endpoint stale: the specific run response is the authoritative update.
+    routes(page, runs=[running])
+    page.route("**/api/runs/run_fixture", lambda route: route.fulfill(
+        content_type="application/json", body=json.dumps(terminal, ensure_ascii=False)))
+    page.goto(app_url + "#/research/run_fixture/canvas")
+    expect(page.locator(".work-status .status-label")).to_have_text("推演中")
+    expect(page.locator(".directory-history > button.current small")).to_contain_text("推演中")
+    expect(page.locator(".work-status .status-label")).to_have_text(label, timeout=6000)
+    expect(page.locator(".directory-history > button.current small")).to_contain_text(label)
+    page.get_by_role("button", name="切换研究 ↗", exact=True).click()
+    expect(page.locator(".history-row span")).to_have_text(label)
+    page.locator(".history-row").click()
+    expect(page.locator(".work-status .status-label")).to_have_text(label)

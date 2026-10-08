@@ -93,13 +93,15 @@ export default function App() {
   useEffect(() => { setSelected(null); setSource(null); setPanelVisible(false); setTab(run?.forecast ? 'report' : 'event') }, [run?.run_id])
   useEffect(() => {
     if (!run || !['queued', 'running'].includes(run.status)) return
-    let live = true
+    let live = true, pending = false
     const id = run.run_id, timer = setInterval(() => {
-      api<Run>(`/runs/${id}`).then(r => {
-        if (!live) return
-        setRun(r)
-        if (!['queued', 'running'].includes(r.status)) api<Run[]>('/runs').then(rows => { if (live) setHistory(rows) })
-      }).catch(e => { if (live) setError(e.message) })
+      if (pending) return
+      pending = true
+      api<Run>(`/runs/${encodeURIComponent(id)}`).then(r => {
+        if (!live || r.run_id !== id) return
+        setRun(current => current?.run_id === id ? r : current)
+        setHistory(rows => rows.map(row => row.run_id === id ? r : row))
+      }).catch(e => { if (live) setError(e.message) }).finally(() => { pending = false })
     }, 1800)
     return () => { live = false; clearInterval(timer) }
   }, [run?.run_id, run?.status])
