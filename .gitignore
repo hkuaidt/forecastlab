@@ -15,5 +15,5 @@ data/
 # Generated browser screenshots stay local; selected previews may be exported separately.
 experiment/validation/screenshots/
 
-# Generated Agent 1–2 fixture evaluation output
+# Generated question/evidence fixture evaluation output
 /fixture-eval.json
