@@ -1,4 +1,5 @@
 import type { Evidence, Issue } from '../types'
+import { sourceForm } from '../contentLabels'
 
 // Only exact, generic source metadata is grouped. Any additional concrete claim
 // stays on the canvas so a substantive contradiction cannot disappear here.
@@ -22,4 +23,20 @@ export function sourceContent(evidence: Evidence): string {
   const claim = evidence.claim.trim()
   const placeholder = /^(?:待核查|待验证|待核实|待确认|待分析|尚待核查|暂无|暂无论点|暂无结论)[。.!！]?$/
   return (claim && !placeholder.test(claim) ? claim : evidence.excerpt) || '此来源尚未保存正文或可展示论点。'
+}
+
+// Canvas previews quote a saved passage, never a generated summary. The source
+// reader still fetches the complete registered snapshot through /passages.
+export function sourcePreview(evidence: Evidence): string {
+  const passage = evidence.passages?.find(item => item.text.trim())?.text
+  return Array.from(passage || evidence.excerpt || sourceContent(evidence)).slice(0, 420).join('')
+}
+
+export function sourcePreviewLabel(evidence: Evidence): string {
+  return {
+    body: '原文选段 · 展开保存全文',
+    snippet: '搜索摘要选段 · 展开保存摘要',
+    excerpt: '导入节选 · 展开保存节选',
+    unknown: '保存材料选段 · 展开保存材料',
+  }[sourceForm(evidence)]
 }

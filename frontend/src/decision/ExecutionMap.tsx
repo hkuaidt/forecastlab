@@ -2,7 +2,7 @@ import { reportFailed } from '../researchStatus'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { Run } from '../types'
-import { isSourceQualityIssue, sourceContent } from './mapContent'
+import { isSourceQualityIssue, sourcePreview, sourcePreviewLabel } from './mapContent'
 import { contentNature, sourceForm, sourceReferenceLabel } from '../contentLabels'
 
 export const phases = [['question','问题理解'],['evidence','证据核查'],['world','世界建模'],['simulation','主体推演'],['review','依据审查'],['forecast','预测报告']] as const
@@ -31,7 +31,7 @@ export function buildMap(run:Run|null,closed:Set<string>){
  const order=['question','evidence','world','simulation',...rounds.map(r=>`round:${r}`),'review','forecast']
  const summaries:Record<string,string>={
   question:run?.question_analysis?.normalized_question||run?.question.question||'等待确认研究问题与时间范围。',
-  evidence:findings[0]?.claim||run?.evidence_assessment?.summary||(run?.evidence[0]?sourceContent(run.evidence[0]):'等待取得来源与证据判断。'),
+  evidence:findings[0]?.claim||run?.evidence_assessment?.summary||(run?.evidence[0]?sourcePreview(run.evidence[0]):'等待取得来源与证据判断。'),
   world:run?.world?.summary||'等待初始状态记录。',
   simulation:actionSummary||run?.world?.simulation_branch_reason||'等待主体行动记录。',
   review:specificIssues[0]?.claim||run?.review?.missing_evidence.join('；')||(run?.review?(qualityIssues.length?'通用来源限制集中在资料质量入口。':'已完成审查，未记录具体矛盾。'):'等待依据审查结果。'),
@@ -49,7 +49,7 @@ export function buildMap(run:Run|null,closed:Set<string>){
   if(id==='question')run.question_framing?.premises.filter(p=>p.user_review!=='rejected').forEach(p=>branches.push({id:`premise:${p.id}`,kind:'前提',title:p.content,text:p.rationale||p.original_span,subtitle:p.treatment==='scenario_condition'?'用户指定情景条件':'待核查前提，尚非事实',parent:id}))
   if(id==='evidence'){
    if(findings.length)findings.forEach(finding=>branches.push({id:`finding:${finding.id}`,kind:'证据发现',nature:contentNature.finding,sourceLabels:[...new Set(finding.citations.map(c=>c.evidence_id))].map(id=>sourceReferenceLabel(id,run.evidence.find(e=>e.id===id))),title:finding.claim,text:finding.citations.map(citation=>citation.quote).join('；'),quote:true,subtitle:'保存的判断与来源引句',lines:finding.limitation?[{label:'判断边界',text:finding.limitation}]:[],parent:id,refs:[finding.id,...new Set(finding.citations.map(citation=>citation.evidence_id))],height:360}))
-   else run.evidence.forEach(e=>branches.push({id:`source:${e.id}`,kind:'来源',title:e.title,text:sourceContent(e),sourceLabels:[sourceReferenceLabel(e.id,e)],parent:id,refs:[e.id],tone:sourceForm(e)==='snippet'?'warning':undefined,height:340}))
+   else run.evidence.forEach(e=>branches.push({id:`source:${e.id}`,kind:'来源',title:e.title,text:sourcePreview(e),subtitle:sourcePreviewLabel(e),sourceLabels:[sourceReferenceLabel(e.id,e)],parent:id,refs:[e.id],tone:sourceForm(e)==='snippet'?'warning':undefined,height:340}))
    if(qualityIssues.length||qualityWarnings.length||sourceLimits.length)branches.push({id:'source-quality',kind:'资料限制',title:'资料质量与限制',text:`${sourceLimits.length} 个来源含摘要、日期或截取限制；${qualityIssues.length} 项通用审查记录。展开查看原始记录。`,parent:id,tone:'warning',compact:true,height:190})
   }
   if(id==='world')run.world?.actors.forEach(actor=>{
