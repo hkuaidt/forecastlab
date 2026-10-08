@@ -13,11 +13,14 @@ PROMPT = """只依据提供的原文段落整理证据，不能用模型记忆�
 若没有活动前提，target_premise_ids必须为空，finding直接服务于研究问题，不得虚构P编号。
 finding.claim 必须是所引 quote 可以直接蕴含的保守释义，只写 quote 本身明确表达的事实。
 quote 没写出的发布日期、年份、机构/产品/项目名称、publisher/source title、文档或提交来源、问题中的用途、因果、趋势、评价、缺失事实或“因此/说明/构成/表明”的解释，
-不得塞进 claim；需要说明时写进 limitation 或 summary。即使这些信息出现在证据 metadata/title/publisher 里，只要 exact quote 没写，就不能补进 claim。
+不得塞进 claim；需要说明局限时写进 limitation，不能把未核验事实移入 summary。即使这些信息出现在证据 metadata/title/publisher 里，只要 exact quote 没写，就不能补进 claim。
 例如 quote 只有“The agency ... April 1”时 claim 可写“目标发射时间不早于4月1日”，不可补“NASA”；quote 只有“... on Jan. 16”时不可补年份；
 quote 只有“Virtual Medal Table: United States 39 gold.”时不可补“Gracenote”。裸表格行只有日期和数值时，不可擅自补“收盘/指数/价格”等口径；
 quote 只有简称/缩写时，不可补全成 quote 未出现的英文实体全名；quote 外的标题、章节名（如 Expected）、“官方”身份、固定提交 provenance 都不能进入 claim。
 标题/截断片段只能按其字面内容生成 claim，不能从“没提到”推断“未发生”。
+只提供了部分段落；没选中或没引用某主题不等于该来源没有相关内容，summary也不得作这种推断。
+客户评价/Quote不是普遍性能测量：claim必须明确“该客户在所述工作流中反馈”，并保留任务/场景限制；
+quote要包含该评价介绍使用场景的首句，不能只摘最后的性能数字。不能把发布时间当成实验完成日期。
 多个 citations 只有在它们共同直接支持 claim 时才能合并到同一个 finding。
 关系属于这个发现与前提，不属于整个网站；同一来源可以支持一项前提、挑战另一项。
 不要因为检索任务叫challenge就把搜到的材料标成反证。没有可靠反证时不编造对立观点。
@@ -108,6 +111,16 @@ def _claim_boundary_violations(finding, citations, sources) -> list[str]:
         issues.append("claim 含 exact quote 未表达的语义口径/来源限定：" + "、".join(semantic_cues))
     if missing_publishers:
         issues.append("claim 把 publisher metadata 写成 quote 事实：" + "、".join(sorted(set(missing_publishers))))
+    for citation in citations:
+        source = sources[citation.evidence_id]
+        paragraph = next((p.text.strip() for p in source.passages if p.paragraph_id == citation.paragraph_id), "")
+        if re.match(r"^(?:Quote|Customer testimonial|客户评价|用户评价)\s*[“\"]", paragraph, re.I):
+            introduction = re.sub(r"^(?:Quote|Customer testimonial|客户评价|用户评价)\s*[“\"]", "", paragraph, flags=re.I)
+            first_sentence = re.split(r"(?<=[.!?。！？])\s+", introduction, maxsplit=1)[0]
+            attributed = re.search(r"客户|用户|团队|作者|评价|反馈|customer|testimonial|team|user", finding.claim, re.I)
+            scoped = re.search(r"(?:所述|该|其|此|这一).{0,12}(?:工作流|任务|场景|助手)|(?:their|this|that).{0,30}(?:workflow|task|assistant)", finding.claim, re.I)
+            if first_sentence not in citation.quote or not attributed or not scoped:
+                issues.append("客户评价须同时引用使用场景首句，并在claim保留客户归属和所述任务/工作流限定，不能泛化为普遍表现")
     return issues
 
 
@@ -139,7 +152,7 @@ def validate_findings(candidate, framing, evidence, passages):
             boundary_issues = _claim_boundary_violations(finding, citations, sources)
             if boundary_issues:
                 raise ValueError("exact-quote claim boundary 越界：" + "；".join(boundary_issues) +
-                                 "。删除 quote 外信息，或把它移到 limitation/summary。")
+                                 "。删除 quote 外信息；可在 limitation 明确标为未核实，不得改写成 summary 中的事实。")
             valid.append(EvidenceFinding(id=f"F{index+1:03}", target_premise_ids=finding.target_premise_ids,
                 claim=finding.claim, relation=finding.relation, citations=citations, limitation=finding.limitation))
         except ValueError as exc:
@@ -213,7 +226,7 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
             retrieval_log=retrieval.retrieval_log, exclusions=retrieval.exclusions, gap_details=_source_gaps(retrieval)), retrieval)
         raise EvidenceStageError(retrieval, a)
     good_sources = []
-    terms = [question.question]
+    terms = [question.question, question.resolution_rule]
     if framing:
         terms += [p.content for p in framing.premises if p.user_review != "rejected"] + framing.alternative_directions
     for original in retrieval.evidence:
@@ -244,17 +257,20 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
         "evidence": [e.model_dump(mode="json", exclude={"snapshot_path", "content_hash", "excerpt"}) for e in good_sources],
         "retrieval_log": [x.model_dump() for x in retrieval.retrieval_log]}
     candidate = None
+    rejection_history = []
     for attempt in range(2):
         try:
             candidate = model.complete("evidence12", payload, AssessmentCandidate, PROMPT, attempt_limit=1)
             findings, rejected = validate_findings(candidate, framing, good_sources, passages)
             conflicts, gaps, more_rejected = _details(candidate, findings, framing, retrieval.retrieval_log, question)
             rejected += more_rejected
-            assessment.summary = candidate.summary
+            assessment.summary_audit.append(candidate.summary)
             assessment.findings, assessment.conflict_details = findings, conflicts
             assessment.findings_validated = True
+            assessment.summary = verified_coverage_summary(assessment)
             assessment.gap_details = _source_gaps(retrieval) + gaps
-            assessment.rejected_findings = rejected
+            rejection_history.extend(rejected)
+            assessment.rejected_findings = list(rejection_history)
             if not rejected:
                 break
             payload["validation_feedback"] = [r.reason for r in rejected]
@@ -265,11 +281,22 @@ def assess_evidence(question, framing, retrieval, model, data_dir) -> EvidenceAs
             assessment.gap_details.append(GapDetail(missing="额度不足，未再修复无效发现", cause="validation_failed"))
             break
         except (ValueError, RuntimeError) as exc:
-            assessment.rejected_findings = [RejectedFinding(candidate={}, reason=f"结构输出无效：{str(exc)[:500]}")]
-            payload["validation_feedback"] = assessment.rejected_findings[0].reason
+            rejection = RejectedFinding(candidate={}, reason=f"第{attempt+1}次结构输出无效：{str(exc)[:500]}")
+            rejection_history.append(rejection)
+            assessment.rejected_findings = list(rejection_history)
+            payload["validation_feedback"] = rejection.reason
+    if not assessment.findings_validated:
+        assessment.summary = f"已保存{len(good_sources)}条可读取来源，但证据分析输出未通过校验；不能据此认定来源没有相关内容。"
     if assessment.rejected_findings:
-        assessment.gap_details.append(GapDetail(missing=f"{len(assessment.rejected_findings)}项候选未通过原文/引用校验，未进入有效发现", cause="validation_failed"))
+        assessment.gap_details.append(GapDetail(missing=f"已保留{len(assessment.rejected_findings)}条候选拒绝/结构错误审计，它们不是有效事实。", cause="validation_failed"))
     return _compatibility(assessment, retrieval)
+
+
+def verified_coverage_summary(assessment) -> str:
+    findings = assessment.findings if assessment.findings_validated else []
+    cited = {citation.evidence_id for finding in findings for citation in finding.citations}
+    return (f"保留{len(findings)}项带可定位原文引文的发现，引用{len(cited)}条来源。"
+            "引文匹配不等于独立事实验证；未选中或未引用的段落不代表来源没有相关内容。")
 
 
 def make_evidence_context(evidence, assessment, *, max_chars_per_source: int) -> dict:
@@ -319,6 +346,8 @@ def make_evidence_context(evidence, assessment, *, max_chars_per_source: int) ->
     limitations = [f"上下文预算不足或段落不匹配，已省略发现 {fid}；不能据此认定该发现没有证据" for fid in omitted]
     visible = assessment.model_copy(deep=True)
     visible.findings, visible.rejected_findings = kept, []
+    visible.summary_audit = []
+    visible.summary = verified_coverage_summary(visible)
     ids = {f.id for f in kept}
     visible.conflict_details = [c for c in visible.conflict_details if set(c.finding_ids) <= ids]
     if omitted:

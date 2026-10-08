@@ -8,7 +8,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => ({}))
     const detail = body.detail
     const message = typeof detail === 'string' ? detail : JSON.stringify(detail || `HTTP ${response.status}`)
-    throw new ApiError(response.status === 409 ? `${message}；请重新加载草稿，不要覆盖其他版本。` : message, response.status)
+    throw new ApiError(response.status === 409 && path.startsWith('/questions/') ? `${message}；请重新加载草稿，不要覆盖其他版本。` : message, response.status)
   }
   return response.json() as Promise<T>
 }

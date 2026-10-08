@@ -1,8 +1,36 @@
 """Deterministic Agent 1–2 fixtures; never contact a model/search service."""
 from copy import deepcopy
 from datetime import datetime, timezone
+import os
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 import pytest
+
+# A test process must never import deployment keys, budgets, or the real data
+# directory. Keep this before every app import; fixtures run too late for the
+# module-level API store. Individual tests can still monkeypatch config/env.
+_test_data = TemporaryDirectory(prefix="forecastlab-unit-tests-")
+_dotenv_patch = patch("dotenv.load_dotenv", return_value=False)
+_dotenv_patch.start()
+os.environ.update({
+    "FORECASTLAB_DATA_DIR": _test_data.name,
+    "QWEN_API_KEY": "", "DEEPSEEK_API_KEY": "", "BRAVE_SEARCH_API_KEY": "", "TAVILY_API_KEY": "",
+    "QWEN_BASE_URL": "https://token-plan.maas.qianwenaiapi.com/compatible-mode/v1",
+    "DEEPSEEK_BASE_URL": "https://api.deepseek.com", "QWEN_MODEL": "qwen3.8-flash", "DEEPSEEK_MODEL": "deepseek-flash",
+    "FORECASTLAB_MAX_CALLS": "18", "FORECASTLAB_MAX_SECONDS": "300",
+    "FORECASTLAB_LIVE_CUTOFF_GRACE_SECONDS": "900", "FORECASTLAB_MODEL_TEMPERATURE": "0",
+    "FORECASTLAB_SHADOW": "0", "FORECASTLAB_ENABLE_THINKING": "false", "FORECASTLAB_SEARCH_PROXY": "",
+    "FORECASTLAB_MODEL_TIMEOUT": "45", "FORECASTLAB_CONTEXT_WINDOW": "16384",
+})
+for _name in ("FORECASTLAB_MAX_OUTPUT_TOKENS", "FORECASTLAB_LOCAL_JSON_MODE"):
+    os.environ.pop(_name, None)
+
 from app.demo import DEMO_QUESTION
+
+
+def pytest_unconfigure(config):
+    _dotenv_patch.stop()
+    _test_data.cleanup()
 
 @pytest.fixture
 def clear_framing():

@@ -20,3 +20,5 @@ docs/agent12/validation-artifacts/screenshots/
 
 # Checkout-local server PID, lock and log files.
 /.forecastlab/
+
+/frontend/dist-preview/

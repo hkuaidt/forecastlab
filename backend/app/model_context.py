@@ -30,7 +30,7 @@ _EVIDENCE_KEYS = {
     "source_kind_basis", "source_group", "source_group_basis", "possible_same_source",
     "availability", "event_status", "content_truncated", "snapshot_hash", "passages", "excerpt",
 }
-_ASSESSMENT_DROP = {"retrieval_log", "rejected_findings", "exclusions"}
+_ASSESSMENT_DROP = {"retrieval_log", "rejected_findings", "exclusions", "summary_audit"}
 
 
 def compact_model_payload(payload: dict) -> dict:

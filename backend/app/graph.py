@@ -8,10 +8,11 @@ from uuid import uuid4
 from langgraph.graph import StateGraph, START, END
 from .schemas import (QuestionSpec, QuestionAnalysis, Evidence, EvidenceAssessment, EvidenceOnlyAudit,
                       WorldState, ActorAction, SimulationStep, Review, ReviewIssue, Forecast,
-                      EvidenceOnlyForecast, RunRecord, utcnow)
+                      EvidenceOnlyForecast, ForecastAttempt, RunRecord, utcnow)
 from .sources import online_search, retrieve_evidence
 from .schemas import RetrievalResult, RetrievalLog, RetrievalTask, Assumption
-from .agents.evidence import (assess_evidence, active_framing, make_evidence_context, EvidenceStageError)
+from .agents.evidence import (assess_evidence, active_framing, make_evidence_context, EvidenceStageError,
+                              verified_coverage_summary)
 from .llm import unique_request_count, request_active_seconds
 from .llm import BudgetExceeded, ModelClient
 from .demo import demo_output
@@ -259,7 +260,8 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
         raise ValueError("仅依据证据的概率不能依赖建模假设")
     if question.mode == "scenario" or (review.status == "blocked" and not evidence_only) or not evidence:
         forecast.probabilities = None
-        forecast.status = "scenario_only" if question.mode == "scenario" else "insufficient_evidence"
+        if forecast.status != "partial":
+            forecast.status = "scenario_only" if question.mode == "scenario" else "insufficient_evidence"
     if question.mode == "scenario":
         if any(re.search(r"\d+(?:\.\d+)?\s*[%％]", item)
                and not re.search(r"假设|示意|非统计|未经校准", item) for item in forecast.scenarios):
@@ -314,11 +316,9 @@ def repair_forecast(forecast: Forecast, question: QuestionSpec, evidence: list[E
         forecast.key_assumptions = []
         forecast.limitations = [item for item in forecast.limitations if "校验未通过" in item]
     forecast.probabilities = None
-    forecast.status = ("scenario_only" if question.mode == "scenario" else
-                       "insufficient_evidence" if not evidence or (review.status == "blocked" and review.probability_basis != "evidence_only")
-                       else "partial")
-    forecast.conclusion = "报告生成未通过结构校验，已保存可追溯的依据，但本次未形成概率；请查看下方错误。"
-    forecast.limitations.append(f"自动报告的完整性校验未通过（{reason[:160]}），概率已省略。")
+    forecast.status = "partial"
+    forecast.conclusion = "报告内容或引用校验未通过；候选输出和具体原因已保留，尚未形成有效报告。"
+    forecast.limitations.append(f"报告内容或引用校验未通过：{reason[:500]}")
     if removed:
         forecast.limitations.append(f"已移除 {removed} 条无法追溯的主张。")
     validate_forecast(forecast, question, evidence, world, simulation, review)
@@ -378,6 +378,14 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                                  "外部事实、world.evidence_refs和actor.visible_evidence_ids仍只能引用E。")
             elif role == "forecast":
                 instructions += " 最终报告不能引用F，必须回到E/H/M/S。"
+        if isinstance(payload.get("evidence_assessment"), dict):
+            # Raw model summaries are audit prose, including on legacy-direct runs.
+            payload = dict(payload)
+            assessment = EvidenceAssessment.model_validate(payload["evidence_assessment"])
+            safe_assessment = {key: value for key, value in payload["evidence_assessment"].items()
+                               if key not in {"summary_audit", "rejected_findings"}}
+            safe_assessment["summary"] = verified_coverage_summary(assessment)
+            payload["evidence_assessment"] = safe_assessment
         return model.complete(role, payload, schema, instructions)
 
     def question_node(state: FlowState):
@@ -786,6 +794,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
         for attempt in range(2):
             forecast = ask("forecast", forecast_payload, forecast_schema,
                            instructions + "语言简洁。" + probability_instructions)
+            candidate = forecast.model_copy(deep=True)
             forecast.probability_basis = "evidence_only" if evidence_only else "full"
             canonicalize_forecast_ids(forecast, evidence, world, simulation)
             if evidence_only:
@@ -802,6 +811,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             try:
                 validate_forecast(forecast, question, evidence, world, simulation, review,
                                   require_probability=evidence_only)
+                record.forecast_attempts.append(ForecastAttempt(candidate=candidate))
                 if evidence_only:
                     forecast.limitations.append("概率仅依据截至日已有证据，未采用模拟行动或建模假设。")
                 if evidence_only and config.SHADOW_FULL:
@@ -851,12 +861,12 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                     forecast.limitations.append("历史演练资料是事后按发布日期整理，并非截至日冻结快照；可能存在回看偏差。")
                 return {"forecast": forecast.model_dump(mode="json")}
             except ValueError as exc:
+                record.forecast_attempts.append(ForecastAttempt(candidate=candidate, validation_errors=[str(exc)]))
+                # Persist the rejected public output before another request can fail.
+                if store is not None:
+                    store.save(record, snapshot=False)
                 forecast_payload["validation_feedback"] = f"上次报告未通过校验：{exc}。请修正后重新输出完整 JSON。"
-        forecast = repair_forecast(forecast, question, evidence, world, simulation, review,
-                                   forecast_payload["validation_feedback"])
-        if any(e.source_type == "exercise" and e.retrieved_at > question.as_of for e in evidence):
-            forecast.limitations.append("历史演练资料是事后按发布日期整理，并非截至日冻结快照；可能存在回看偏差。")
-        return {"forecast": forecast.model_dump(mode="json")}
+        raise ValueError("报告内容或引用校验未通过：" + record.forecast_attempts[-1].validation_errors[-1])
 
     graph = StateGraph(FlowState)
     for name, fn in (("define_question", question_node), ("retrieve", evidence_node), ("model_world", world_node), ("simulate", simulation_node), ("audit", review_node), ("synthesize", forecast_node)):
@@ -890,21 +900,22 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
                 raise ValueError("保存的证据发现未经过原文校验，不能继续后续阶段；已保留原记录，请重新导入原文创建运行。")
         if record.demo:
             model = None
-        elif record.question_framing:
+        else:
             previous_calls = store.list_calls(record.run_id)
             prior_usage = {"calls": max(len(previous_calls), record.usage["calls"]),
                 "prompt_tokens": max(sum(c.prompt_tokens for c in previous_calls), record.usage["prompt_tokens"]),
                 "completion_tokens": max(sum(c.completion_tokens for c in previous_calls), record.usage["completion_tokens"])}
             cap = max(0, config.MAX_CALLS - unique_request_count(record.preparation_records))
+            if record.report_repair_parent:
+                cap = min(cap, 2)
             prep_seconds = sum(c.elapsed_seconds for c in record.preparation_records)
-            retrieval_seconds = max((log.elapsed_seconds for log in record.retrieval_result.retrieval_log), default=0) if record.retrieval_result else 0
+            retrieval_seconds = (max((log.elapsed_seconds for log in record.retrieval_result.retrieval_log), default=0)
+                                 if record.retrieval_result and not record.report_repair_parent else 0)
             measured_runtime = request_active_seconds(previous_calls) + retrieval_seconds
             model = ModelClient(initial_usage=prior_usage,
                 initial_active_seconds=prep_seconds + max(record.active_seconds, measured_runtime),
                 call_limit=cap, on_reserve=lambda h, v: store.reserve_call(record.run_id, "runtime", call_limit=cap,
                     input_hash=h, prompt_version=v), on_finish=store.finish_call)
-        else:
-            model = ModelClient()
         state: FlowState = {"question": record.question.model_dump(mode="json")}
         if record.question_framing:
             state["question_framing"] = record.question_framing.model_dump(mode="json")
@@ -923,8 +934,6 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
             record.errors = []
             record.resume_count += 1
             record.finished_at = None
-            if model and not record.question_framing:
-                model.usage = record.usage.copy()
         graph = build_graph(record, imported, model, store.directory, start_at=start_at, store=store)
         record.status = "running"
         record.stage = current_stage
@@ -954,7 +963,7 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
             if model:
                 record.usage = model.usage.copy()
                 record.model = getattr(model, "actual_model", None) or record.model
-                if record.question_framing and hasattr(model, "active_seconds"):
+                if hasattr(model, "active_seconds"):
                     record.active_seconds = max(record.active_seconds, model.active_seconds-sum(c.elapsed_seconds for c in record.preparation_records))
             next_index = stage_names.index(stage) + 1
             current_stage = stage_names[next_index] if next_index < len(stage_names) else "done"
@@ -987,7 +996,7 @@ def execute(record: RunRecord, imported: list[Evidence], store, *, resume: bool 
         if model:
             record.usage = model.usage.copy()
             record.model = getattr(model, "actual_model", None) or record.model
-        if record.question_framing:
+        if not record.demo:
             record.model_calls = store.list_calls(record.run_id)
             if model and hasattr(model, "active_seconds"):
                 record.active_seconds = max(0, model.active_seconds - sum(c.elapsed_seconds for c in record.preparation_records))

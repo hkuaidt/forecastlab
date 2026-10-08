@@ -111,13 +111,51 @@ def text_terms(text: str) -> set[str]:
     return words
 
 
+_NAVIGATION_LINE = re.compile(
+    r"^(?:skip to content|navigation menu|sign in(?: appearance settings)?|sign up|appearance settings)$"
+    r"|^view all(?: features| use cases| industries| solutions| topics)?$"
+    r"|^platform AI code creation\b|^solutions by company size\b"
+    r"|^resources explore by (?:topic|type)\b|^enterprise enterprise solutions\b"
+    r"|^(?:developer workflows|application security|support & services|by use case|by industry|available add-ons)$"
+    r"|^©\s*\d{4}\s+[^.!?。！？]{1,80}(?:Inc\.)?$", re.I,
+)
+
+
+def _navigation_label(text: str) -> bool:
+    # Whole prose sentences, including articles discussing copyright or login,
+    # are not menu labels merely because they contain one of those words.
+    return len(text) <= 180 and bool(_NAVIGATION_LINE.search(text))
+
+
 def select_passages(passages: list[EvidencePassage], query_texts: list[str], *, limit: int = 2400) -> list[EvidencePassage]:
+    """Rank intact source passages; weak cross-language matches must not favor menus."""
     terms = text_terms(" ".join(query_texts))
-    ranked = sorted(passages, key=lambda p: (-len(text_terms(p.text) & terms), p.start))
+    passage_terms = {p.paragraph_id: text_terms(p.text) for p in passages}
+    frequency = {term: sum(term in items for items in passage_terms.values()) for term in terms}
+    def score(p):
+        content = p.text.strip()
+        relevance = sum((.15 if term.isdigit() or term == "ai" else 1) / (1 + frequency[term]) ** .5
+                        for term in passage_terms[p.paragraph_id] & terms)
+        # Prefer prose over many tiny navigation labels when language differs or
+        # lexical overlap is only a date/AI. This changes ranking, never offsets.
+        substance = min(len(content) / 240, 1.0) + (.4 if re.search(r"[.!?。！？][\s\"”']*$", content) else 0)
+        return relevance + substance - (10 if _navigation_label(content) else 0)
+    # Older snapshots may split a long paragraph at a decimal point. Keep the
+    # original IDs/offsets, but never present just "4%" from a split "96.4%".
+    groups = []
+    for passage in sorted(passages, key=lambda p: p.start):
+        previous = groups[-1][-1] if groups else None
+        if (previous is not None and previous.end == passage.start
+                and re.search(r"\d\.$", previous.text) and re.match(r"\d", passage.text)):
+            groups[-1].append(passage)
+        else:
+            groups.append([passage])
+    ranked = sorted(groups, key=lambda group: (-max(score(p) for p in group), group[0].start))
     selected, used = [], 0
-    for passage in ranked:
-        if used + len(passage.text) <= limit:
-            selected.append(passage); used += len(passage.text)
+    for group in ranked:
+        size = sum(len(p.text) for p in group)
+        if used + size <= limit:
+            selected.extend(group); used += size
         if used >= limit:
             break
     return sorted(selected, key=lambda p: p.start)

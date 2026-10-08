@@ -49,11 +49,19 @@ def routes(page, *, missing_key=False, runs=None, framing=None, passages=None):
     return captured
 
 
+
+def navigate_page(page, title):
+    link = page.get_by_role("link", name=re.compile(title))
+    if not link.is_visible():
+        page.get_by_role("button", name="展开目录", exact=True).click()
+    link.click()
+    if page.viewport_size["width"] < 900:
+        page.get_by_role("button", name="隐藏目录", exact=True).click()
+
 def prepare(page, app_url):
     page.goto(app_url)
-    page.get_by_role("button", name="＋ 新建研究", exact=True).click()
+    page.get_by_role("button", name="新建研究 ＋", exact=True).click()
     page.get_by_label("研究问题", exact=True).fill(QUESTION["question"])
-    page.get_by_label("分析方式").select_option("scenario")
     page.get_by_role("button", name="分析问题", exact=True).click()
 
 
@@ -86,7 +94,7 @@ def test_new_research_does_not_restore_offline_draft(page, app_url):
     captured = routes(page)
     page.add_init_script("localStorage.setItem('forecastlab.agent12.draft_id','draft_fixture')")
     page.goto(app_url)
-    page.get_by_role("button", name="＋ 新建研究", exact=True).click()
+    page.get_by_role("button", name="新建研究 ＋", exact=True).click()
     expect(page.get_by_label("研究问题", exact=True)).to_have_value("")
     expect(page.get_by_text("需要核查实际范围", exact=True)).to_have_count(0)
     assert captured["analyses"] == []
@@ -128,7 +136,7 @@ def inspect_view(page, app_url, run=None):
     routes(page, runs=[run], passages={"evidence_id": "E001", "text": SOURCE_TEXT, "snapshot_hash": "fixture-hash", "content_truncated": True,
         "passages": [{"paragraph_id": "B000001", "text": SOURCE_TEXT, "start": 0, "end": len(SOURCE_TEXT), "snapshot_hash": "fixture-hash"}]})
     page.goto(app_url)
-    page.get_by_role("button", name=re.compile("问题与证据")).click()
+    navigate_page(page, "问题与证据")
 
 
 def test_filter_findings_by_premise_and_relation(page, app_url):
@@ -201,7 +209,7 @@ def test_real_backend_saved_run_and_source_inspection(page, app_url):
     assert record["status"] in ("completed", "scenario_only", "insufficient_evidence")
     page.goto(app_url)
     expect(page.locator(".work-header h1")).to_have_text(record["question"]["question"])
-    page.get_by_role("button", name=re.compile("问题与证据")).click()
+    navigate_page(page, "问题与证据")
     page.locator(".source-short").first.click()
     expect(page.get_by_role("dialog", name="来源原文")).to_be_visible()
     expect(page.get_by_role("dialog").get_by_text("教学虚构材料", exact=True)).to_be_visible()
@@ -212,7 +220,7 @@ def test_source_hash_mismatch_blocks_highlight(page, app_url):
     routes(page, runs=[run], passages={"evidence_id": "E001", "text": SOURCE_TEXT,
         "snapshot_hash": "changed-hash", "content_truncated": True, "passages": []})
     page.goto(app_url)
-    page.get_by_role("button", name=re.compile("问题与证据")).click()
+    navigate_page(page, "问题与证据")
     page.get_by_role("button", name="查看 E001 原文", exact=True).click()
     expect(page.get_by_role("alert")).to_have_text("原文哈希或引用位置不匹配，不能高亮引用。")
     expect(page.locator("mark")).to_have_count(0)
@@ -227,12 +235,12 @@ def test_research_supplement_requires_reviewed_status(page, app_url):
     page.route("**/assets/research-run_fixture.json", lambda route: route.fulfill(content_type="application/json", body=json.dumps(candidate)))
     page.goto(app_url)
     with page.expect_response("**/assets/research-run_fixture.json"):
-        page.get_by_role("button", name=re.compile("研究报告")).click()
+        navigate_page(page, "研究报告")
     expect(page.get_by_text("候选正文不能展示", exact=True)).to_have_count(0)
     candidate["quality_status"] = "reviewed"
-    page.get_by_role("button", name=re.compile("问题与证据")).click()
+    navigate_page(page, "问题与证据")
     with page.expect_response("**/assets/research-run_fixture.json"):
-        page.get_by_role("button", name=re.compile("研究报告")).click()
+        navigate_page(page, "研究报告")
     expect(page.get_by_text("候选正文不能展示", exact=True)).to_be_visible()
 
 

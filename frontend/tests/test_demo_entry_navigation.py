@@ -12,7 +12,7 @@ def test_new_research_is_blank_and_does_not_start_run(page, app_url, viewport, m
     writes = []
     page.on("request", lambda r: writes.append(r.url) if r.method == "POST" else None)
     page.goto(app_url)
-    entry = page.get_by_role("button", name="＋ 新建研究", exact=True)
+    entry = page.get_by_role("button", name="新建研究 ＋", exact=True)
     entry.focus()
     page.keyboard.press("Enter")
     question = page.get_by_label("研究问题", exact=True)

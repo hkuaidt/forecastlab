@@ -231,7 +231,7 @@ def test_review_rejects_repeated_invalid_references_after_one_repair():
     assert model.reviews == 2
 
 
-def test_forecast_falls_back_without_probability_when_citations_never_validate():
+def test_forecast_fails_with_audited_candidates_when_citations_never_validate():
     class FakeModel:
         calls = 0
 
@@ -244,12 +244,12 @@ def test_forecast_falls_back_without_probability_when_citations_never_validate()
 
     model = FakeModel()
     record = RunRecord(run_id="run_forecast_fallback", question=DEMO_QUESTION, evidence_mode="import", model="fake")
-    state = build_graph(record, demo_evidence(), model, Path("/tmp")).invoke({"question": DEMO_QUESTION.model_dump(mode="json")})
+    with pytest.raises(ValueError, match="报告内容或引用校验未通过"):
+        build_graph(record, demo_evidence(), model, Path("/tmp")).invoke({"question": DEMO_QUESTION.model_dump(mode="json")})
     assert model.calls == 2
-    assert state["forecast"]["status"] == "partial"
-    assert state["forecast"]["probabilities"] is None
-    assert len(state["forecast"]["supporting"]) == 1
-    assert any("无法追溯" in item for item in state["forecast"]["limitations"])
+    assert len(record.forecast_attempts) == 2
+    assert all(attempt.validation_errors for attempt in record.forecast_attempts)
+    assert record.forecast is None
 
 
 def test_model_receives_bounded_excerpt_without_changing_snapshot():
@@ -265,8 +265,8 @@ def test_resume_runs_only_the_failed_stage(monkeypatch):
     should_fail = {"forecast": True}
 
     class FakeModel:
-        def __init__(self):
-            self.usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+        def __init__(self, **kwargs):
+            self.usage = dict(kwargs.get("initial_usage") or {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0})
 
         def complete(self, role, payload, schema, instructions):
             self.usage["calls"] += 1
@@ -299,8 +299,8 @@ def test_resume_runs_only_the_failed_stage(monkeypatch):
 
 def test_reuse_keeps_frozen_evidence_and_history(monkeypatch):
     class FakeModel:
-        def __init__(self):
-            self.usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+        def __init__(self, **kwargs):
+            self.usage = dict(kwargs.get("initial_usage") or {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0})
         def complete(self, role, payload, schema, instructions, **kwargs):
             self.usage["calls"] += 1
             if role == "evidence12":

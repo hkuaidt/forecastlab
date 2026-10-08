@@ -25,3 +25,6 @@ if not 0 <= MODEL_TEMPERATURE <= 2:
 
 # Opt-in research shadow forecast: extra model call; never replaces the main result.
 SHADOW_FULL = os.getenv("FORECASTLAB_SHADOW", "0").strip().lower() not in {"", "0", "false", "no"}
+
+_frontend_path = Path(os.getenv("FORECASTLAB_FRONTEND_DIR", "frontend/dist"))
+FRONTEND_DIR = (_frontend_path if _frontend_path.is_absolute() else ROOT / _frontend_path).resolve()

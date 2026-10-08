@@ -421,6 +421,8 @@ class EvidenceQualityProfile(StrictModel):
 
 class EvidenceAssessment(BaseModel):
     summary: str
+    # Unverified model prose is retained only for audit, never downstream evidence.
+    summary_audit: list[str] = Field(default_factory=list)
     quality_profile: EvidenceQualityProfile | None = None
     # Server-controlled trust bit. Legacy/model output is forced to False; only
     # assess_evidence() may set it True after exact snapshot/passage validation.
@@ -541,6 +543,13 @@ class Forecast(BaseModel):
     new_information: list[str] = Field(default_factory=list)
 
 
+class ForecastAttempt(BaseModel):
+    """Public model output and its application validation result, never hidden reasoning."""
+    candidate: Forecast
+    validation_errors: list[str] = Field(default_factory=list)
+    recorded_at: datetime = Field(default_factory=utcnow)
+
+
 class EvidenceOnlyForecast(Forecast):
     """An approved evidence-only binary forecast cannot silently omit probability."""
     status: Literal["completed"] = "completed"
@@ -611,6 +620,9 @@ class RunRecord(BaseModel):
     forecast: Forecast | None = None
     # Opt-in experiment record; never substitutes for the scored forecast.
     shadow_forecast: Forecast | None = None
+    forecast_attempts: list[ForecastAttempt] = Field(default_factory=list)
+    report_repair_parent: str | None = None
+    report_repair_audit: dict[str, object] = Field(default_factory=dict)
     settlement: Settlement | None = None
     model: str
     prompt_version: str = "v2"

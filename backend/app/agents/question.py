@@ -110,6 +110,13 @@ def finalize_framing(candidate: FramingCandidate, request: AnalyzeQuestionReques
             if not any(c.field == name for c in clarifications):
                 clarifications.append(QuestionClarification(id=f"C{len(clarifications)+1:03}", field=name,
                     question=f"模型建议与您填写的 {name} 不同；目前保留您的值。需要更改请编辑后重新分析。", blocking=True))
+    if request.question.mode == "scenario":
+        # Scenario input is an explicit product choice, including absent settlement
+        # fields. A model suggestion must not create a binary confirmation loop.
+        scenario_fields = {"mode", "resolve_by", "resolution_rule", "resolution_source", "resolution", "outcomes"}
+        for name in ("resolve_by", "resolution_rule", "resolution_source"):
+            setattr(proposed, name, getattr(request.question, name))
+        clarifications = [item for item in clarifications if item.field not in scenario_fields]
     if proposed.mode == "binary":
         for name, prompt in (("resolve_by", "请明确在哪个日期和时区判断结果。"),
                              ("resolution_rule", "什么可核对的情况算是，什么情况算否？")):

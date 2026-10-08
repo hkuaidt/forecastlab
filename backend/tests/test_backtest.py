@@ -141,7 +141,7 @@ def test_report_validation_failure_is_not_labeled_missing_evidence():
                                [], Review(status="qualified"), "关键假设引用不存在")
     assert repaired.status == "partial"
     assert repaired.probabilities is None
-    assert "结构校验" in repaired.conclusion
+    assert "内容或引用校验" in repaired.conclusion
 
 
 def test_dated_reconstructed_market_evidence_can_be_used_with_audit_label():

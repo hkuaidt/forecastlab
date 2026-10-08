@@ -1,0 +1,11 @@
+{
+  "upstreams": [
+    "http://127.0.0.1:18054/v1",
+    "http://127.0.0.1:18055/v1",
+    "http://127.0.0.1:18056/v1",
+    "http://127.0.0.1:18057/v1"
+  ],
+  "queue_limit": 32,
+  "queue_timeout_seconds": 120,
+  "read_timeout_seconds": 600
+}

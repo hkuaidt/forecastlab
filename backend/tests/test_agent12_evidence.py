@@ -238,7 +238,8 @@ def test_exact_quote_boundary_feedback_triggers_repair(tmp_path, clear_framing, 
     assessment = m.assess_evidence(q, frame, retrieval, model, tmp_path)
     assert model.call_count == 2
     assert len(assessment.findings) == 2
-    assert assessment.rejected_findings == []
+    assert len(assessment.rejected_findings) == 1
+    assert "2026" in assessment.rejected_findings[0].reason
     assert "validation_feedback" in model.calls[1][1]
     assert any("exact-quote claim boundary" in x for x in model.calls[1][1]["validation_feedback"])
 

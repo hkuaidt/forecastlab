@@ -15,6 +15,7 @@ from .sources import import_evidence
 from .provenance import load_snapshot, split_passages
 from .storage import RunStore, VersionConflict
 from .question_service import QuestionService, ModelNotConfigured
+from .report_repair import prepare_report_repair, report_repair_info
 from .llm import BudgetExceeded
 from .schemas import AnalyzeQuestionRequest, ConfirmQuestionRequest
 
@@ -245,9 +246,22 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
     def create_run(request: RunRequest, background_tasks: BackgroundTasks):
         return enqueue(request, background_tasks)
 
+    def run_view(record: RunRecord):
+        # Reservations are durable before transport starts; expose them while a
+        # stage is still running instead of waiting for its next snapshot.
+        calls = store.list_calls(record.run_id)
+        if calls:
+            record.model_calls = calls
+            record.usage = {
+                "calls": max(record.usage["calls"], len(calls)),
+                "prompt_tokens": max(record.usage["prompt_tokens"], sum(c.prompt_tokens for c in calls)),
+                "completion_tokens": max(record.usage["completion_tokens"], sum(c.completion_tokens for c in calls)),
+            }
+        return {**record.model_dump(mode="json"), "report_repair": report_repair_info(record)}
+
     @app.get("/api/runs")
     def list_runs():
-        return [r.model_dump(mode="json") for r in store.list()]
+        return [run_view(r) for r in store.list()]
 
     @app.get("/api/settlements/summary")
     def settlement_summary():
@@ -289,9 +303,36 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
             run_lock.release()
             raise
 
+    @app.post("/api/runs/{run_id}/repair-report", status_code=202)
+    def repair_report(run_id: str, background_tasks: BackgroundTasks):
+        if not run_lock.acquire(blocking=False):
+            raise HTTPException(409, "已有预测正在运行；请等待完成后再重试。")
+        try:
+            parent = required(run_id)
+            if not report_repair_info(parent)["available"]:
+                raise HTTPException(409, "只有上游阶段完整的失败报告可以重新生成")
+            if not config.MODEL_API_KEY:
+                raise HTTPException(503, "未配置模型密钥")
+            try:
+                child = prepare_report_repair(parent, store.directory)
+            except (ValueError, OSError, KeyError) as exc:
+                raise HTTPException(422, f"报告修复前的原文与轨迹核验未通过：{exc}") from exc
+            store.save(child)
+            def work():
+                try:
+                    execute(child, child.evidence, store, resume=True)
+                finally:
+                    run_lock.release()
+            background_tasks.add_task(work)
+            return JSONResponse(status_code=202, content={"run_id": child.run_id,
+                "parent_run_id": parent.run_id, "status": "queued"})
+        except Exception:
+            run_lock.release()
+            raise
+
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str):
-        return required(run_id)
+        return run_view(required(run_id))
 
     @app.post("/api/runs/{run_id}/settlement", status_code=201)
     def settle_run(run_id: str, request: SettlementRequest):
@@ -348,7 +389,7 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
             return JSONResponse(public_run_data(run), headers={"Content-Disposition": f'attachment; filename="{run.run_id}.json"'})
         return HTMLResponse(report_html(run), headers={"Content-Disposition": f'attachment; filename="{run.run_id}.html"'})
 
-    dist = config.ROOT / "frontend" / "dist"
+    dist = config.FRONTEND_DIR
     if dist.is_dir():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
         @app.get("/{path:path}", include_in_schema=False)
