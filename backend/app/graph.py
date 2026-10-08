@@ -20,7 +20,7 @@ from .demo import demo_output
 from . import config
 from .cutoff_gaps import is_future_outcome_gap
 from .resume import restore_legacy_evidence_stage, verify_saved_evidence_stage
-from .forecast_wire import DefinitionFirstForecast, WIRE_INSTRUCTIONS, definition_first_task, to_public_forecast
+from .forecast_wire import DefinitionFirstForecast, WIRE_INSTRUCTIONS, definition_first_task, to_public_forecast, review_first_view
 
 
 class FlowState(TypedDict, total=False):
@@ -611,6 +611,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             proposed = payload["question_framing"].get("proposed_spec")
             if isinstance(proposed, dict):
                 payload["question_framing"]["proposed_spec"] = scenario_forecast_context({"question": proposed})["question"]
+        if role == "forecast" and schema is DefinitionFirstForecast:
+            payload = review_first_view(payload)
         result = model.complete(role, payload, schema, instructions)
         check_cancelled()
         return result

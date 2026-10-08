@@ -1,4 +1,5 @@
 """Private definition-first scenario response; the public Forecast stays unchanged."""
+from copy import deepcopy
 from pydantic import BaseModel, Field, model_validator
 from typing import Literal
 from .schemas import Claim, Forecast, ScenarioDetail, ScenarioForecast
@@ -79,15 +80,41 @@ def to_public_forecast(candidate):
 
 
 WIRE_INSTRUCTIONS = (
-    "按专用JSON顺序完成本次报告：先terminal_target固定目标、同一目标日期和范围，terminal_axis固定一个可判断结果的轴；"
-    "再填terminal_definitions的2–3个具名终态，最后terminal_weights给对应槽位的主观weight与rationale/E/H/S依据。"
-    "outcome_1/2/3仅为新终态槽；每条定义必须描述同一目标时点不同且互斥的结果状态，覆盖主要可能性。"
-    "先写所有定义再分配权重，不能把模拟轮次或各自条件成功率当作终态。weight在0到1且合计1，数字未经校准。"
-    "conditions是驱动条件；说明重叠时按什么终态边界判定。理由比较各终态为什么更可能或更不可能。"
-    "若terminal_task给定named_outcomes_from_question，使用这些实际结果名称组织定义。"
-    "原文优先于F模型释义；review指出缺直接依据的主张不能在conclusion写成既成事实。"
-    "模拟state_changes与unresolved冲突时保留未决条件，不把计划、愿望、同意直接写为已实现效果。"
-    "只登记该条实际使用的E/H/S；模拟编号是依据，不是终态名称。证据有限写限制，仍给未校准权重。")
+    "先读report_first_read的审查限制，再按JSON顺序：terminal_target固定目标、同一目标日期和范围，terminal_axis固定一个可判断结果的轴；"
+    "轴只选一种结果，不把‘X和Y的进展’两维捆绑。terminal_definitions先写2–3个具名终态，之后terminal_weights分配主观weight与rationale/E/H/S。"
+    "按顺序划分：outcome_1先给可观察判定标准；outcome_2明写‘不满足outcome_1且…’；如有outcome_3，定义为不满足前两项的剩余情况。"
+    "同一目标时点任何情况只能归入首个满足的终态；只用‘部分/有限’程度词不构成边界。conditions单列驱动条件，不能拿它代替终态定义。"
+    "先写所有定义再分配权重，不把模拟轮次或各自条件成功率当终态；weight在0到1且合计1，数字未经校准。"
+    "若terminal_task给定named_outcomes_from_question，沿用名称并补互斥边界。"
+    "原文优先于F模型释义；disputed_interpretation与review.challenged_claim是被质疑释义，不能复制为无条件支持事实。"
+    "来源只支持其原文的机构、领域和地区，不外推成其他机构/领域的已知事实；未提供规则不证明规则不存在。"
+    "supporting/opposing只要引用H或S，整句用‘若…则可能…’明确条件；独立原文观察另写一条并只挂E。"
+    "每条rationale先写‘原文实际记录…’，再写‘在H/S条件下可能…’，最后比较未决条件如何影响weight，不能把假设归因给E。"
+    "模拟state_changes与unresolved冲突时保留未决条件，不把计划、愿望、同意写为已实现效果。"
+    "只登记该条实际使用的E/H/S；模拟编号不是终态名。证据有限写限制，仍给未校准权重。")
+
+
+def review_first_view(payload):
+    """Qualify review-challenged interpretations in a private, quote-preserving view."""
+    safe = deepcopy(payload)
+    findings = {item.get("id"):item for item in (safe.get("evidence_assessment") or {}).get("findings", [])}
+    constraints = []
+    for issue in (safe.get("review") or {}).get("issues", []):
+        affected = [fid for fid in issue.get("affected_ids", []) if fid in findings]
+        if "claim" in issue:
+            issue["challenged_claim"] = issue.pop("claim")
+        if not affected:
+            continue
+        constraints.append({"finding_ids":affected, "review_limitation":issue.get("explanation", "")})
+        for fid in affected:
+            claim = findings[fid].get("claim", "")
+            marker = "[disputed_interpretation：待检验释义，不可无条件断言] "
+            if not claim.startswith(marker):
+                findings[fid]["claim"] = marker + claim
+    return {"report_first_read":{
+        "rule":"以下是审查提出的限制，不是新增事实。回到exact quote，仅将原文直接表明的内容写作观察；其余保留条件。",
+        "review_constraints":constraints,
+        "definition_rule":"单一判定轴；按顺序排除先前终态，最后分支覆盖剩余情况；驱动条件与判定边界分开。"}, **safe}
 
 
 def definition_first_task(question):

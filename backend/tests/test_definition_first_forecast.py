@@ -4,7 +4,7 @@ import json
 
 import pytest
 from app import config, graph
-from app.forecast_wire import DefinitionFirstForecast, to_public_forecast
+from app.forecast_wire import DefinitionFirstForecast, to_public_forecast, review_first_view
 from app.schemas import Forecast, QuestionSpec, RunRecord
 from test_forecast_finding_references import frozen_state
 from test_scenario_end_states import inputs, real_candidates
@@ -123,3 +123,42 @@ def test_binary_evidence_only_and_shadow_stay_on_their_existing_schemas(tmp_path
     result=graph.build_graph(record,[],model,tmp_path,start_at="synthesize").invoke(state)
     assert model.schemas==["EvidenceOnlyForecast","Forecast"]
     assert record.shadow_forecast and result["forecast"]["probability_basis"]=="evidence_only"
+
+
+def test_private_review_view_marks_only_named_interpretations_and_keeps_exact_quotes():
+    payload=frozen_state()
+    payload["review"]["issues"]=[{"claim":"原释义超过原文支持范围", "explanation":"缺乏效果的直接依据。",
+        "severity":"medium", "affected_ids":["F001","E001"]}]
+    original=deepcopy(payload)
+    view=review_first_view(payload)
+    assert next(iter(view))=="report_first_read"
+    assert view["report_first_read"]["review_constraints"]==[{"finding_ids":["F001"],"review_limitation":"缺乏效果的直接依据。"}]
+    before={item["id"]:item for item in payload["evidence_assessment"]["findings"]}
+    after={item["id"]:item for item in view["evidence_assessment"]["findings"]}
+    assert after["F001"]["claim"].startswith("[disputed_interpretation")
+    assert after["F001"]["claim"].endswith(before["F001"]["claim"])
+    for fid in before:
+        assert after[fid]["citations"]==before[fid]["citations"]
+        if fid!="F001":
+            assert after[fid]==before[fid]
+    assert "claim" not in view["review"]["issues"][0]
+    assert view["review"]["issues"][0]["challenged_claim"]=="原释义超过原文支持范围"
+    assert view["evidence"]==payload["evidence"] and payload==original
+
+
+def test_review_first_graph_input_and_sequential_boundary_prompt_add_no_call(tmp_path):
+    state=frozen_state(); original=deepcopy(state)
+    class Model:
+        calls=0
+        def complete(self,role,payload,schema,instructions):
+            self.calls+=1
+            assert next(iter(payload))=="report_first_read"
+            assert "不满足outcome_1且" in instructions and "剩余情况" in instructions
+            assert "轴只选一种结果" in instructions and "conditions单列驱动条件" in instructions
+            assert "supporting/opposing只要引用H或S" in instructions
+            assert "原文实际记录" in instructions and "在H/S条件下可能" in instructions
+            assert all("claim" not in issue for issue in payload["review"]["issues"])
+            return schema.model_validate(response())
+    model=Model(); record=RunRecord(run_id="review-first",question=QuestionSpec.model_validate(state["question"]),evidence_mode="import",model="fixture")
+    result=graph.build_graph(record,[],model,tmp_path,start_at="synthesize").invoke(state)
+    assert model.calls==1 and result["forecast"]["status"]=="completed" and state==original
