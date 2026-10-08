@@ -20,7 +20,7 @@ from .demo import demo_output
 from . import config
 from .cutoff_gaps import is_future_outcome_gap
 from .resume import restore_legacy_evidence_stage, verify_saved_evidence_stage
-from .forecast_wire import DefinitionFirstForecast, WIRE_INSTRUCTIONS, definition_first_task, to_public_forecast, review_first_view
+from .forecast_wire import DefinitionFirstForecast, WIRE_FORMAT, WIRE_INSTRUCTIONS, definition_first_task, to_public_forecast, review_first_view, qualify_model_claims
 
 
 class FlowState(TypedDict, total=False):
@@ -398,20 +398,23 @@ def validate_scenario_quantification(forecast: Forecast, evidence: list[Evidence
 
 
 
-def validate_scenario_end_states(forecast: Forecast, simulation: list[SimulationStep]) -> None:
+def validate_scenario_end_states(forecast: Forecast | DefinitionFirstForecast, simulation: list[SimulationStep]) -> None:
     """Reject literal round identifiers or copied states, not semantic outcome labels."""
     step_ids = {step.id for step in simulation}
     normalize = lambda text: " ".join(text.split())
     summaries = {normalize(step.summary) for step in simulation if step.summary.strip()}
     invalid = []
-    for name in forecast.probabilities or {}:
+    private = isinstance(forecast, DefinitionFirstForecast)
+    details = forecast.terminal_definitions if private else forecast.scenario_details
+    field = "terminal_definitions" if private else "scenario_details"
+    for name in ([] if private else forecast.probabilities or {}):
         if name.strip() in step_ids:
             invalid.append(f"probabilities[{name}]")
-    for index, detail in enumerate(forecast.scenario_details):
+    for index, detail in enumerate(details):
         if detail.name.strip() in step_ids:
-            invalid.append(f"scenario_details[{index}].name")
+            invalid.append(f"{field}[{index}].name")
         if normalize(detail.definition) in summaries:
-            invalid.append(f"scenario_details[{index}].definition")
+            invalid.append(f"{field}[{index}].definition")
     if invalid:
         raise ValueError("S编号和逐字轮次摘要表示同一轨迹的先后状态，不能充当互斥终局；需修改字段："
                          + ", ".join(invalid)
@@ -1095,7 +1098,7 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 manual_feedback = record.report_repair_audit.get("validation_feedback")
                 if manual_feedback:
                     forecast_payload["validation_feedback"] = manual_feedback
-                record.forecast_policy["wire_format"] = "definition-first-v1"
+                record.forecast_policy["wire_format"] = WIRE_FORMAT
             else:
                 probability_instructions = "尚未取得来源，probabilities必须为null；说明需要补充什么资料，不编造概率。"
             instructions += (
@@ -1126,8 +1129,10 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 response = ask("forecast", forecast_payload, forecast_schema,
                                instructions + "解释应充分且具体：结论2–4句，支持与反对主张说明来源联系和限制，每个情景应能独立读懂；避免只写标题或重复套话。" + probability_instructions)
                 if isinstance(response, DefinitionFirstForecast):
-                    wire_audit = {"candidate": response.model_dump(mode="json"), "validation_errors": []}
+                    wire_audit = {"wire_format": WIRE_FORMAT, "candidate": response.model_dump(mode="json"), "validation_errors": []}
                     record.forecast_policy.setdefault("wire_attempts", []).append(wire_audit)
+                    # Check raw labels/definitions before partition text is added.
+                    validate_scenario_end_states(response, simulation)
                 forecast = to_public_forecast(response)
             except ModelCancelled:
                 raise
@@ -1148,6 +1153,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
             forecast.probability_basis = "evidence_only" if evidence_only else "full"
             canonicalize_forecast_ids(forecast, evidence, world, simulation,
                                       state.get("evidence_assessment"))
+            if wire_audit is not None:
+                qualify_model_claims(forecast)
             if evidence_only:
                 # The evidence-only report cannot acquire new model assumptions.
                 # Keep evidence-backed prose, but remove references to the excluded branch.

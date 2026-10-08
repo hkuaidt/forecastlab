@@ -4,6 +4,9 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Literal
 from .schemas import Claim, Forecast, ScenarioDetail, ScenarioForecast
 
+WIRE_FORMAT = "definition-first-ordered-v2"
+_CONDITIONAL_PREFIX = "若所引用的H/S条件成立，则以下仅为条件性模型判断（未经核实）："
+
 
 class TerminalTarget(BaseModel):
     target: str = Field(min_length=1)
@@ -14,13 +17,13 @@ class TerminalTarget(BaseModel):
 class TerminalDefinition(BaseModel):
     outcome_id: Literal["outcome_1", "outcome_2", "outcome_3"]
     name: str = Field(min_length=1)
-    definition: str = Field(min_length=1)
+    definition: str = Field(min_length=1, description="有序判据：3槽时定义1=A、定义2=B、定义3仅剩余分支示例；2槽时定义1=A、定义2仅补集示例。")
     conditions: list[str] = Field(min_length=1)
 
 
 class TerminalWeight(BaseModel):
     outcome_id: Literal["outcome_1", "outcome_2", "outcome_3"]
-    weight: float = Field(ge=0, le=1)
+    weight: float = Field(ge=0, le=1, description="新生成的权重针对最终有序partition：3槽A/非A且B/非A且非B；2槽A/非A。不得沿用旧候选权重。")
     rationale: str = Field(min_length=1)
     evidence_ids: list[str] = Field(default_factory=list)
     assumption_ids: list[str] = Field(default_factory=list)
@@ -66,24 +69,59 @@ def to_public_forecast(candidate):
         raise ValueError("terminal_definitions与terminal_weights必须使用相同且不重复的outcome槽位")
     if len(set(names)) != len(names):
         raise ValueError("terminal_definitions的具名终态不能重复")
+    if set(ids) != {f"outcome_{i+1}" for i in range(len(definitions))}:
+        raise ValueError("有序终局必须使用连续outcome_1/outcome_2/可选outcome_3槽位")
+    definitions = sorted(definitions, key=lambda item:item.outcome_id)
     by_id = {item.outcome_id:item for item in weights}
-    details = [ScenarioDetail(name=item.name, definition=item.definition, conditions=item.conditions,
-        rationale=by_id[item.outcome_id].rationale, evidence_ids=by_id[item.outcome_id].evidence_ids,
-        assumption_ids=by_id[item.outcome_id].assumption_ids, simulation_ids=by_id[item.outcome_id].simulation_ids)
-        for item in definitions]
-    # Slot lookup only: never rescale, round, invent or reassign a probability.
+    target = candidate.terminal_target
+    shared = f"目标时点：{target.horizon}；范围：{target.scope}；判定轴：{candidate.terminal_axis}。"
+    a = definitions[0].definition
+    interpreted = [shared + f"满足判据A：『{a}』。"]
+    if len(definitions) == 3:
+        b = definitions[1].definition
+        interpreted.append(shared + f"不满足判据A『{a}』，且满足判据B『{b}』。")
+        interpreted.append(shared + f"既不满足判据A『{a}』，也不满足判据B『{b}』的全部剩余情况。"
+                           + f"模型对本分支的举例/倾向：{definitions[2].definition}（不构成额外必要条件）。")
+    else:
+        interpreted.append(shared + f"不满足判据A『{a}』的全部剩余情况。"
+                           + f"模型对本分支的举例/倾向：{definitions[1].definition}（不构成额外必要条件）。")
+    details = [ScenarioDetail(name=item.name, definition=interpreted[index], conditions=item.conditions,
+        rationale="模型条件解释（依赖该分支条件；E仅提供背景，不证明以下完整结论）：" + by_id[item.outcome_id].rationale,
+        evidence_ids=by_id[item.outcome_id].evidence_ids, assumption_ids=by_id[item.outcome_id].assumption_ids,
+        simulation_ids=by_id[item.outcome_id].simulation_ids) for index,item in enumerate(definitions)]
+    def conditional_claims(claims):
+        result = []
+        for claim in claims:
+            public = claim.model_copy(deep=True)
+            if public.assumption_ids or public.simulation_ids:
+                public.text = _CONDITIONAL_PREFIX + public.text
+            result.append(public)
+        return result
+    limitations = [*candidate.limitations,
+        "终局使用预先声明的有序判定规则；互斥分组不代表判据和模型解释已被事实核真，主观权重未经校准。"]
+    # Interpret the predeclared partition. Never rescale or reassign model weights.
     return Forecast(status="completed", probability_basis="full", conclusion=candidate.conclusion,
         probabilities={item.name:by_id[item.outcome_id].weight for item in definitions},
-        supporting=candidate.supporting, opposing=candidate.opposing, key_assumptions=candidate.key_assumptions,
-        scenarios=candidate.scenarios or [f"{item.name}：{item.definition}" for item in definitions],
-        scenario_details=details, limitations=candidate.limitations, new_information=candidate.new_information)
+        supporting=conditional_claims(candidate.supporting), opposing=conditional_claims(candidate.opposing),
+        key_assumptions=candidate.key_assumptions,
+        scenarios=[f"{item.name}：{item.definition}" for item in details],
+        scenario_details=details, limitations=limitations, new_information=candidate.new_information)
+
+
+def qualify_model_claims(forecast):
+    """Also cover real S references canonically recovered from a fresh wire's prose."""
+    for claim in [*forecast.supporting, *forecast.opposing]:
+        if (claim.assumption_ids or claim.simulation_ids) and not claim.text.startswith(_CONDITIONAL_PREFIX):
+            claim.text = _CONDITIONAL_PREFIX + claim.text
 
 
 WIRE_INSTRUCTIONS = (
     "先读report_first_read的审查限制，再按JSON顺序：terminal_target固定目标、同一目标日期和范围，terminal_axis固定一个可判断结果的轴；"
     "轴只选一种结果，不把‘X和Y的进展’两维捆绑。terminal_definitions先写2–3个具名终态，之后terminal_weights分配主观weight与rationale/E/H/S。"
-    "按顺序划分：outcome_1先给可观察判定标准；outcome_2明写‘不满足outcome_1且…’；如有outcome_3，定义为不满足前两项的剩余情况。"
-    "同一目标时点任何情况只能归入首个满足的终态；只用‘部分/有限’程度词不构成边界。conditions单列驱动条件，不能拿它代替终态定义。"
+    "本次使用预先约定的有序partition：三槽依次为A、非A且B、非A且非B；二槽为A、非A。"
+    "definition1提供A，三槽definition2提供B；最后槽的原definition仅为该剩余分支举例/倾向，不增加必要条件。"
+    "终态按此合同显示，必须为最终partition新生成weight，不能复用旧候选权重；同一情况只归一个槽。"
+    "只用‘部分/有限’程度词不构成可观察判据。conditions单列驱动条件，不能拿它代替终态定义。"
     "先写所有定义再分配权重，不把模拟轮次或各自条件成功率当终态；weight在0到1且合计1，数字未经校准。"
     "若terminal_task给定named_outcomes_from_question，沿用名称并补互斥边界。"
     "原文优先于F模型释义；disputed_interpretation与review.challenged_claim是被质疑释义，不能复制为无条件支持事实。"
@@ -120,7 +158,14 @@ def review_first_view(payload):
 def definition_first_task(question):
     outcomes = question.get("outcomes") or []
     return {
+        "version":WIRE_FORMAT,
         "output_order":["terminal_target", "terminal_axis", "terminal_definitions", "terminal_weights", "report_text"],
+        "partition_contract":{
+            "three_slots":["outcome_1: A=definition1", "outcome_2: NOT A AND B=definition2", "outcome_3: NOT A AND NOT B"],
+            "two_slots":["outcome_1: A=definition1", "outcome_2: NOT A"],
+            "last_definition":"仅为剩余分支的模型举例/倾向，不是额外必要条件",
+            "weights":"针对以上最终partition新生成权重，保留模型数字；不重用旧候选权重",
+            "conditions":"驱动条件独立保留，不添加到终局必要判据"},
         "named_outcomes_from_question":outcomes,
         "definition_example": {"note":"仅示例定义结构；实际目标、日期、范围和判定轴取自本问题，不复用示例项目",
             "axis":"假设道路项目在同一目标日期的完工状态",

@@ -153,7 +153,7 @@ def test_review_first_graph_input_and_sequential_boundary_prompt_add_no_call(tmp
         def complete(self,role,payload,schema,instructions):
             self.calls+=1
             assert next(iter(payload))=="report_first_read"
-            assert "不满足outcome_1且" in instructions and "剩余情况" in instructions
+            assert "非A且B" in instructions and "剩余分支举例" in instructions
             assert "轴只选一种结果" in instructions and "conditions单列驱动条件" in instructions
             assert "supporting/opposing只要引用H或S" in instructions
             assert "原文实际记录" in instructions and "在H/S条件下可能" in instructions

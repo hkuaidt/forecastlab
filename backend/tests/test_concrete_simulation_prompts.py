@@ -106,7 +106,7 @@ def test_concrete_prompts_keep_source_scope_and_two_round_state_without_extra_ca
                 assert payload["valid_assumption_ids"] == ["H001"]
                 assert payload["valid_simulation_ids"] == ["S1", "S2"]
                 assert "先写所有定义再分配权重" in instructions
-                assert "重叠时按什么终态边界判定" in instructions and "数字未经校准" in instructions
+                assert "有序partition" in instructions and "数字未经校准" in instructions
                 assert "new_information列值得跟踪的具体行动" in instructions
                 probabilities = {"完整发布": .5, "缩减发布": .3, "延期": .2}
                 definitions = {
