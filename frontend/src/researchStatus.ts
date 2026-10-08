@@ -11,6 +11,22 @@ export function reportFailureReason(run: Run): string {
 }
 export function recordedSeconds(run: Run | null): number {
   if (!run) return 0
-  if (typeof run.active_seconds === 'number' && run.active_seconds > 0) return run.active_seconds
-  return Object.values(run.stage_durations || {}).reduce((total, value) => total + Math.max(0, value), 0)
+  const base = typeof run.active_seconds === 'number' && run.active_seconds > 0
+    ? run.active_seconds
+    : Object.values(run.stage_durations || {}).reduce((total, value) => total + Math.max(0, value), 0)
+  const running = ['queued', 'running'].includes(run.status)
+  const calls = [...new Map((run.model_calls || []).map(call => [call.request_id, call])).values()]
+  const intervals = calls.flatMap(call => {
+    const start = Date.parse(call.started_at || '') / 1000
+    if (!Number.isFinite(start)) return []
+    const duration = running && call.status === 'reserved'
+      ? Math.max(0, Date.now() / 1000 - start) : Math.max(0, call.elapsed_seconds)
+    return [[start, start + duration]]
+  }).sort((a, b) => a[0] - b[0])
+  let total = 0, end = -Infinity
+  for (const [start, stop] of intervals) {
+    total += Math.max(0, stop - Math.max(start, end))
+    end = Math.max(end, stop)
+  }
+  return Math.max(base, total)
 }

@@ -93,3 +93,16 @@ def test_deep_link_selects_the_requested_historical_run(page,app_url):
     page.get_by_role("button",name="返回推演画布",exact=True).click()
     expect(page).to_have_url(re.compile("/run_fixture/canvas$"))
     expect(page.locator(".canvas-workspace")).to_be_visible()
+
+def test_live_elapsed_unions_parallel_calls_without_offline_gap(page, app_url):
+    record=long_run()
+    record.update(status="running",stage="world",active_seconds=10,started_at="2025-01-01T00:00:00Z")
+    record["model_calls"]=[
+        {"request_id":"call1","started_at":"2026-10-08T12:00:00Z","elapsed_seconds":20,"status":"succeeded","usage_known":True,"prompt_tokens":10,"completion_tokens":10},
+        {"request_id":"call2","started_at":"2026-10-08T12:00:10Z","elapsed_seconds":30,"status":"succeeded","usage_known":True,"prompt_tokens":10,"completion_tokens":10},
+        {"request_id":"call3","started_at":"2026-10-08T12:00:30Z","elapsed_seconds":0,"status":"reserved","usage_known":False,"prompt_tokens":0,"completion_tokens":0},
+    ]
+    page.add_init_script("Date.now = () => Date.parse('2026-10-08T12:01:00Z')")
+    routes(page,runs=[record])
+    page.goto(app_url)
+    expect(page.locator(".work-status")).to_contain_text("累计运行 1 分 0 秒")

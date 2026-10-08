@@ -23,7 +23,7 @@ export type PremiseDecision = { premise_id: string; user_review: 'retained' | 'r
 export type QuestionConfirmation = { confirmation_id: string; framing: QuestionFraming; question: Question; revision: number }
 export type QuestionDraftView = { framing: QuestionFraming; confirmation: QuestionConfirmation | null }
 export type ClarificationAnswer = { clarification_id: string; answer: string }
-export type ModelCall = { request_id: string; status: string; usage_known: boolean; prompt_tokens: number; completion_tokens: number; elapsed_seconds: number }
+export type ModelCall = { started_at?: string; request_id: string; status: string; usage_known: boolean; prompt_tokens: number; completion_tokens: number; elapsed_seconds: number }
 
 export type EvidencePassage = { paragraph_id: string; start: number; end: number; text: string; snapshot_hash: string }
 export type FindingCitation = { evidence_id: string; snapshot_hash: string; paragraph_id: string; quote: string; start: number; end: number }
