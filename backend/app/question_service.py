@@ -4,6 +4,7 @@ import hashlib
 import json
 from uuid import uuid4
 from . import config
+from .future_only import current_question, validate_future
 from .agents.question import analyze_question, finalize_framing
 from .llm import ModelClient, BudgetExceeded
 from .schemas import AnalyzeQuestionRequest, QuestionFraming, ConfirmQuestionRequest, AnalysisRecord
@@ -27,6 +28,9 @@ class QuestionService:
         return result
 
     def confirm(self, draft_id, request: ConfirmQuestionRequest):
+        framing = self.get(draft_id).framing
+        if not framing.demo_case_id:
+            validate_future(framing.proposed_spec)
         return self.store.confirm_draft(draft_id, request)
 
     def analyze(self, request: AnalyzeQuestionRequest) -> QuestionFraming:
@@ -47,6 +51,8 @@ class QuestionService:
             if existing and existing.framing.analysis_record.input_hash == digest:
                 self.store.finish_operation(request.operation_id, existing.framing)
                 return existing.framing
+        if not request.demo_case_id:
+            request = request.model_copy(update={"question": current_question(request.question)}, deep=True)
         previous = None
         if request.draft_id:
             view = self.get(request.draft_id)
@@ -78,6 +84,8 @@ class QuestionService:
             for attempt in range(2):
                 try:
                     candidate = analyze_question(request, previous, model, validation_feedback=feedback)
+                    if not request.demo_case_id:
+                        validate_future(candidate.proposed_spec)
                     frame = finalize_framing(candidate, request, previous)
                     frame.draft_id = owner
                     break

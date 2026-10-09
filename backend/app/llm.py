@@ -4,6 +4,7 @@ import asyncio
 from contextlib import contextmanager, suppress
 import hashlib
 import math
+import logging
 import httpx
 import json
 import os
@@ -208,7 +209,10 @@ class ModelClient:
 
     def complete(self, role: str, payload: dict, schema: type[BaseModel], instructions: str,
                  *, attempt_limit: int | None = None) -> BaseModel:
-        deadline = min(self.deadline_monotonic, time.monotonic() + self.request_timeout)
+        timeout = float(os.getenv("FORECASTLAB_REPORT_TIMEOUT", str(self.request_timeout))) if role == "forecast" else self.request_timeout
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ValueError("FORECASTLAB_REPORT_TIMEOUT must be a positive finite duration")
+        deadline = min(self.deadline_monotonic, time.monotonic() + timeout)
         with self.transport.limits(lambda: self._check_limits(deadline)):
             return self._complete(role, payload, schema, instructions, attempt_limit=attempt_limit, deadline=deadline)
 
@@ -288,6 +292,7 @@ class ModelClient:
                 record.status, record.error_type = "failed", type(exc).__name__
                 error = (json.dumps(exc.errors(include_input=False, include_url=False), ensure_ascii=False, default=str)[:500]
                          if isinstance(exc, ValidationError) else str(exc)[:500])
+                logging.getLogger(__name__).warning("%s output validation: %s", role, error)
                 retryable = attempt < min(1, total_attempts - 1)
                 if not retryable:
                     raise RuntimeError(f"{role}输出无法通过结构校验：{error}") from exc

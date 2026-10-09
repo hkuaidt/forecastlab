@@ -53,6 +53,17 @@ def report_html(run: RunRecord, data_dir: Path | None = None) -> str:
         conclusion += para("无有效概率")
     body = section("结论与情景概率", conclusion)
 
+    if forecast and forecast.predictions:
+        content = para("以下是条件化预测；日期为观察截止点，模型设定的判据不代表来源已有承诺或实测结果。")
+        for item in sorted(forecast.predictions, key=lambda p: p.by_date):
+            content += f"<article><h3>{esc(item.actor)}：{esc(item.action)}</h3>"
+            content += para(f"{item.id} · {item.by_date}前观察 · 对应情景：{' / '.join(item.scenario_names)}")
+            for label, value in (("预期看到的具体变化", item.observable_result), ("为什么可能发生", item.mechanism),
+                                 ("用什么材料核对", item.verification), ("什么会推翻预测", item.falsifier)):
+                content += f"<h4>{label}</h4>" + para(value)
+            content += refs(item) + "</article>"
+        body += section("具体预测与验证节点", content)
+
     framing = run.question_framing
     if framing:
         body += section("问题与前提", para(framing.raw_question) + listing([

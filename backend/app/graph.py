@@ -20,6 +20,7 @@ from .demo import demo_output
 from . import config
 from .cutoff_gaps import is_future_outcome_gap
 from .resume import restore_legacy_evidence_stage, verify_saved_evidence_stage
+from .forecast_specificity import validate_specificity
 from .forecast_wire import DefinitionFirstForecast, WIRE_FORMAT, WIRE_INSTRUCTIONS, definition_first_task, to_public_forecast, review_first_view, qualify_model_claims
 
 
@@ -242,7 +243,7 @@ def canonicalize_forecast_ids(forecast: Forecast, evidence: list[Evidence], worl
         checked = EvidenceAssessment.model_validate(assessment)
         trusted = validated_finding_ids(checked, evidence_ids)
         aliases = {fid: ids for fid, ids in finding_evidence_map(assessment).items() if fid in trusted}
-    for claim in [*forecast.supporting, *forecast.opposing, *forecast.scenario_details]:
+    for claim in [*forecast.supporting, *forecast.opposing, *forecast.scenario_details, *forecast.predictions]:
         refs = canonical_ids(claim.evidence_ids, evidence_ids | set(aliases))
         # F is an already validated intermediary, not another external source.
         # Unknown/unvalidated F stays in place for normal rejection; never guess E.
@@ -443,6 +444,14 @@ def validate_forecast(forecast: Forecast, question: QuestionSpec, evidence: list
             raise ValueError(f"情景 {detail.name} 缺少可展开的E/H/S依据")
         if evidence_only and (detail.assumption_ids or detail.simulation_ids):
             raise ValueError("仅依据证据的情景说明不能引用假设或模拟")
+    for prediction in forecast.predictions:
+        check_ids(prediction.evidence_ids, evidence_ids, "具体预测证据")
+        check_ids(prediction.assumption_ids, assumption_ids, "具体预测假设")
+        check_ids(prediction.simulation_ids, simulation_ids, "具体预测模拟")
+        if not (prediction.evidence_ids or prediction.assumption_ids or prediction.simulation_ids):
+            raise ValueError(f"{prediction.id}缺少可展开的依据")
+    if forecast.predictions:
+        validate_specificity(forecast, question)
     check_ids(forecast.key_assumptions, assumption_ids, "关键假设")
     if evidence_only and forecast.key_assumptions:
         raise ValueError("仅依据证据的概率不能依赖建模假设")
@@ -616,6 +625,10 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 payload["question_framing"]["proposed_spec"] = scenario_forecast_context({"question": proposed})["question"]
         if role == "forecast" and schema is DefinitionFirstForecast:
             payload = review_first_view(payload)
+        instructions += (" 优先近期行动证据，recency_role=background仅解释历史基线，日期未知不得断言近期状态。"
+                         "以finding.event_time梳理事件先后；发布时间不等于事件发生时间，计划不是已实现结果。"
+                         "causal_hypotheses全部是待验证推断；时间先后本身不证明因果。对关键路径说明机制、替代解释、区分它们所需的后续可观察证据。"
+                         "缺少近期证据时明确当前状态未核实，不能用旧文章或模型模拟填补。")
         result = model.complete(role, payload, schema, instructions)
         check_cancelled()
         return result
@@ -1110,6 +1123,13 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                 "limitations只简明说明会影响上述判断的实际缺口，不以笼统不确定性或‘没有完整原文’充当报告正文。"
                 "模型假设、模拟结果及被遮蔽的比例不是新增观测，不要声称其经过实测。"
                 "原文来源、发布日期未知及历史回看限制必须保留；审查意见作为限制披露。")
+        if forecast_schema is DefinitionFirstForecast:
+            # WIRE_INSTRUCTIONS already carries the complete scenario contract.
+            # Avoid repeating the old public-schema instructions in a 16K window.
+            instructions = (
+                "只用给定资料与有效E/H/S；来源、日期和审查限制必须保留。只核对已选引句，不声称重读完整网页。"
+                "区分来源事实、假设与模拟。conclusion用2–4句直接回答现实做法如何变化；new_information列值得跟踪的具体行动、核验材料以及会提高或降低哪条情景。"
+                "limitations简述实际缺口，review=blocked须披露，不把模型推演当实测。")
         if price_context:
             forecast_payload["market_price_context"] = price_context
             price_note = ("对于市场价格问题，先比较预测期限与历史价格覆盖：一两日涨势不能直接外推到月末，"
@@ -1134,6 +1154,8 @@ def build_graph(record: RunRecord, imported: list[Evidence], model: ModelClient 
                     # Check raw labels/definitions before partition text is added.
                     validate_scenario_end_states(response, simulation)
                 forecast = to_public_forecast(response)
+                if isinstance(response, DefinitionFirstForecast):
+                    validate_specificity(forecast, question, horizon=response.terminal_target.horizon)
             except ModelCancelled:
                 raise
             except (ValueError, RuntimeError, BudgetExceeded) as exc:

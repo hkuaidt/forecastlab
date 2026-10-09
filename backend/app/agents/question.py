@@ -6,7 +6,11 @@ from pydantic import ValidationError
 from ..schemas import (AnalyzeQuestionRequest, FramingCandidate, QuestionFraming, QuestionInput,
     QuestionDraft, QuestionSpec, QuestionClarification, QuestionPremise, RetrievalTask)
 
-PROMPT = """澄清研究对象、时间、地区和判定标准，保留用户原意，不接受其预设结论。
+PROMPT = """产品只接受基于当前资料的未来预测，不接受历史回测或预测已经结束的事件。
+as_of 是服务器记录的当前时间，不是可让用户选择的日期，不要要求用户修改它。
+若用户预测目标已在 as_of 之前结束，必须提出 field=future_target、blocking=true 的澄清，要求改为未来目标；不能把过去目标悄悄改写成未来。
+历史事实可以作为未来预测的背景，不应仅因为问题提及历史日期就拒绝。
+澄清研究对象、时间、地区和判定标准，保留用户原意，不接受其预设结论。
 premises 只识别用户文本中可被核查或证伪的背景事实、世界状态、因果解释或情景条件；
 必须给 source_input_id 和逐字 original_span。中性问题可以完全没有 premise。
 绝对不要把这些内容写成 premise：研究对象/实体名称、预测目标本身、信息截点、结算日期、比较日期、
@@ -24,6 +28,7 @@ model_inferred 表示从措辞推断的世界状态或因果前提，绝不冒�
 不能反问用户先提供这些研究结果，也不能为这些输出要求建立blocking clarification。
 “请分析/分别考虑/给出情景/明确条件和概率/列出证据”等任务指令不是世界事实，不能列入premises；
 “将怎样影响/是否会发生”等问句也不预设其影响或结果已经成立。仅提取句中另外明确断言的可核查背景事实。
+检索服务优先近90天、必要时扩大到一年。query查最新已发生的行动、发布、采用或否定结果，以便重建时间线；不要搜索未来预测年份，不要用旧综述代替当前状态。
 retrieval_plan按以下结构生成，最多3条，每条query对应一个实际任务而非整个题目的综述：
 1. 先按用户明确列出的研究任务或环节分配query；明确三个任务时各一条。主体或工具名不能替代任务覆盖。
 2. 每条query聚焦一项实际任务或决策变量，结构为“具体研究术语 + 原始资料类型”；寻找已采取的行动与结果、实测边界或机构规则。
@@ -124,6 +129,8 @@ def research_instruction_premise(premise) -> bool:
     span = premise.original_span.strip()
     if re.match(r"^(?:研究)?范围(?:限定|界定|设定)?(?:为|是|[:：])", span):
         return True
+    if re.match(r"^(?:请)?(?:优先(?:检索|搜索|查找)|梳理时间线|正文无明确事件日期时使用文章发布日期)", content) and not _ASSERTION_LEAD.search(content):
+        return True
     literal = _statement_text(content) in _statement_text(span)
     scope_parts = re.split(r"(?<=[：:])", span, maxsplit=1)
     scope, following = scope_parts[0], scope_parts[1].strip() if len(scope_parts) > 1 else ""
@@ -132,6 +139,14 @@ def research_instruction_premise(premise) -> bool:
                 _statement_text(scope).rstrip("：:"), _statement_text(span)}
             and not _ASSERTION_LEAD.search(scope) and not _SCOPE_ASSERTION.search(scope)
             and (not following or _pure_research_question(following))):
+        return True
+    if (re.search(r"会怎样|将如何|会如何", content) and not _ASSERTION_LEAD.search(content)
+            and not _SCOPE_ASSERTION.search(content)
+            and not re.search(r"已经|曾经|已证明|证实|发现", content)):
+        return True
+    if (re.match(r"^(?:请|重点|主要)?关注", content) and "、" in content
+            and re.search(r"具体行动|相互影响", content)
+            and not _ASSERTION_LEAD.search(content) and not _SCOPE_ASSERTION.search(content)):
         return True
     if _pure_research_question(content):
         return True
@@ -152,6 +167,10 @@ def research_instruction_premise(premise) -> bool:
 
 def _output_only_query(query: str) -> bool:
     text = query.strip()
+    text = re.sub(r"^(?:主要|未来|可能的)\s*", "", text)
+    text = re.sub(r"^未来\s*", "", text)
+    if re.fullmatch(r"(?:情景|场景|条件|主观概率|概率|证据局限|不确定性|及|与|和|[、，,\s])+", text):
+        return True
     instruction = _TASK_INSTRUCTION.search(text)
     if instruction:
         text = text[instruction.end():].strip()

@@ -105,7 +105,7 @@ def test_graph_corrects_copied_rounds_with_existing_second_attempt_and_keeps_raw
     assert result["forecast"]["status"] == "completed"
     assert result["forecast"]["probabilities"] == good["probabilities"]
     assert result["forecast"]["scenario_details"][0]["simulation_ids"] == ["S1"]
-    assert record.forecast_attempts[0].candidate.model_dump(mode="json") == bad
+    assert record.forecast_attempts[0].candidate.model_dump(mode="json") == Forecast.model_validate(bad).model_dump(mode="json")
     assert record.forecast_attempts[0].validation_errors
     assert record.forecast_attempts[1].candidate.scenario_details[0].simulation_ids == []
     assert state == original

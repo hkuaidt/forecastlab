@@ -25,6 +25,12 @@ def response(count=3):
         "terminal_weights":[{"outcome_id":f"outcome_{i+1}","weight":weights[i],
             "rationale":"在S1模拟路径下，合作可作为条件线索；正式采用仍待机构决定，原文没有证明资金机构政策。",
             "evidence_ids":["E001"],"simulation_ids":["S1"]} for i in range(count)],
+        "predictions":[{"id":f"K{i+1:03}", "actor":"研究团队", "action":f"公开第{i+1}类证明的可复核代码与验收记录", "by_date":f"2027-{3+i*3:02}-01",
+            "observable_result":"项目随论文提交机器可运行的证明代码，并保留独立复核记录。",
+            "mechanism":"若研究团队降低验证成本，则更可能持续提交材料；资源不足会阻断持续维护。",
+            "verification":"核对公开代码仓库、提交记录与独立复核报告是否相互对应。",
+            "falsifier":"到观察节点只有宣传或演示，没有可运行代码与独立复核记录。",
+            "scenario_names":[names[i%count]], "evidence_ids":["E001"], "assumption_ids":[], "simulation_ids":[]} for i in range(3)],
         "conclusion":"未来采用程度取决于可复核结果与机构选择，现有资料不能证明流程改善已经实现。",
         "limitations":["所选出版规则不能代表独立资金机构政策；跨领域材料仅作参考。"]}
 
@@ -49,7 +55,7 @@ def test_legacy_s_round_candidates_are_never_renamed_or_reweighted(index):
     candidate=DefinitionFirstForecast.model_validate(original)
     assert isinstance(candidate,Forecast)
     report=to_public_forecast(candidate)
-    assert report.model_dump(mode="json")==original
+    assert report.model_dump(mode="json")==Forecast.model_validate(original).model_dump(mode="json")
     with pytest.raises(ValueError,match="先后状态"):
         graph.validate_scenario_end_states(report,inputs()[4])
 

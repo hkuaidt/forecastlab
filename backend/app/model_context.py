@@ -26,7 +26,7 @@ class ContextBudgetResult:
 
 _EVIDENCE_KEYS = {
     "id", "source_url", "file_id", "title", "publisher", "published_at", "updated_at",
-    "event_at", "retrieved_at", "source_type", "source_kind", "content_kind",
+    "event_at", "retrieved_at", "recency_role", "age_days", "source_type", "source_kind", "content_kind",
     "source_kind_basis", "source_group", "source_group_basis", "possible_same_source",
     "availability", "event_status", "content_truncated", "snapshot_hash", "passages", "excerpt",
 }
@@ -400,6 +400,8 @@ def fit_local_context(payload: dict, *, schema: dict, instructions: str, role: s
                 if omitted:
                     assessment["summary"] = f"本次模型上下文保留 {len(kept)} 项可追查发现，省略 {len(omitted)} 项；不可将省略视为不存在。"
                 kept_ids = {f["id"] for f in kept}
+                assessment["causal_hypotheses"] = [c for c in assessment.get("causal_hypotheses", [])
+                    if {c["from_finding_id"], c["to_finding_id"]} <= kept_ids]
                 assessment["conflict_details"] = [c for c in assessment.get("conflict_details", [])
                     if set(c["finding_ids"]) <= kept_ids]
                 if assessment.get("conflicts") and omitted:

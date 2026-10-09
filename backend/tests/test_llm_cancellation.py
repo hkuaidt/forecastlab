@@ -173,3 +173,22 @@ def test_real_loopback_cancellation_closes_socket(configured, monkeypatch):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_forecast_timeout_override_keeps_other_roles_and_run_cap(configured, monkeypatch):
+    monkeypatch.setenv('FORECASTLAB_REPORT_TIMEOUT','4')
+    model=ModelClient()
+    monkeypatch.setattr(model,'_complete',lambda *a,**kw:kw['deadline']-time.monotonic())
+    assert 1.8 < model.complete('question',{},QuestionAnalysis,'') <= 2
+    assert 3.8 < model.complete('forecast',{},QuestionAnalysis,'') <= 4
+    model.deadline_monotonic=time.monotonic()+.1
+    assert 0 < model.complete('forecast',{},QuestionAnalysis,'') <= .1
+
+
+@pytest.mark.parametrize('invalid',['0','-1','nan','inf'])
+def test_forecast_timeout_rejects_unbounded_values(configured,monkeypatch,invalid):
+    monkeypatch.setenv('FORECASTLAB_REPORT_TIMEOUT',invalid)
+    model=ModelClient()
+    with pytest.raises(ValueError,match='REPORT_TIMEOUT'):
+        model.complete('forecast',{},QuestionAnalysis,'')
+    assert model.usage['calls']==0

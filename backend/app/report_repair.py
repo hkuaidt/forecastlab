@@ -31,9 +31,12 @@ def report_repair_info(record: RunRecord) -> dict:
             "endpoint": f"/api/runs/{record.run_id}/repair-report" if available else None}
 
 
-def prepare_report_repair(parent: RunRecord, data_dir) -> RunRecord:
+def prepare_report_repair(parent: RunRecord, data_dir, *, refine: bool = False) -> RunRecord:
     """Revalidate a private copy before any model call or child is persisted."""
-    if not report_repair_info(parent)["available"]:
+    eligible_refinement = (refine and parent.status in {"completed", "partial"} and parent.forecast
+                           and parent.question.mode == "scenario" and not parent.demo
+                           and all(stage in parent.stage_outputs for stage in UPSTREAM_STAGES))
+    if not (eligible_refinement or (not refine and report_repair_info(parent)["available"])):
         raise ValueError("只有上游阶段完整的失败报告可以重新生成")
     child = parent.model_copy(deep=True)
     stage = child.stage_outputs["evidence"]
@@ -104,6 +107,13 @@ def prepare_report_repair(parent: RunRecord, data_dir) -> RunRecord:
         "parent_errors": list(parent.errors), "new_call_limit": min(config.MAX_CALLS, 2),
         "revalidated_at": utcnow().isoformat(), "scope": "forecast_only",
     }
+    if refine:
+        child.report_repair_audit["scope"] = "forecast_refinement"
+        child.report_repair_audit["validation_feedback"] = (
+            "用户要求把笼统影响等级细化为可核对的预测。沿用已保存来源，不能编造新证据；"
+            "情景按主体做法或工作流结果命名，必须给3–5条具体预测：主体、行动、未来日期、可观察成果、机制、核查材料和推翻信号。"
+            "当前主张的E出处只能支持其原文；未来节点和判据是模型判断，不是机构承诺。")
+    child.forecast_policy = {}
     child.stage_outputs = {stage: child.stage_outputs[stage] for stage in UPSTREAM_STAGES}
     child.forecast = None
     child.forecast_attempts = []

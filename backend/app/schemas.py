@@ -249,12 +249,30 @@ class FindingCitation(CitationCandidate):
     end: int = Field(ge=0)
 
 
+class EventTime(StrictModel):
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    date_quote: str = Field(default="", max_length=800)
+    status: Literal["observed", "planned", "unknown"] = "unknown"
+    basis: Literal["event_quote", "publication_date"] = "event_quote"
+    source_evidence_id: str | None = None
+
+
+class CausalHypothesis(StrictModel):
+    chronology_basis: Literal["event_order", "report_order"] = "report_order"
+    from_finding_id: str
+    to_finding_id: str
+    mechanism: str = Field(min_length=1, max_length=600)
+    alternative: str = Field(min_length=1, max_length=600)
+    verification: str = Field(min_length=1, max_length=600)
+
+
 class FindingCandidate(StrictModel):
     target_premise_ids: list[str] = Field(default_factory=list, max_length=12)
     claim: str = Field(min_length=1, max_length=1500)
     relation: Literal["supports", "challenges", "alternative", "background", "unclear"]
     citations: list[CitationCandidate] = Field(min_length=1, max_length=4)
     limitation: str = Field(default="", max_length=1500)
+    event_time: EventTime | None = None
 
 
 class EvidenceFinding(StrictModel):
@@ -264,6 +282,7 @@ class EvidenceFinding(StrictModel):
     relation: Literal["supports", "challenges", "alternative", "background", "unclear"]
     citations: list[FindingCitation] = Field(min_length=1)
     limitation: str = ""
+    event_time: EventTime | None = None
 
 
 class RejectedFinding(StrictModel):
@@ -296,6 +315,7 @@ class GapDetail(StrictModel):
 
 
 class AssessmentCandidate(StrictModel):
+    causal_hypotheses: list[CausalHypothesis] = Field(default_factory=list, max_length=3)
     summary: str = Field(max_length=3000)
     findings: list[FindingCandidate] = Field(default_factory=list, max_length=16)
     conflicts: list[ConflictCandidate] = Field(default_factory=list, max_length=6)
@@ -303,6 +323,7 @@ class AssessmentCandidate(StrictModel):
 
 
 class RetrievalLog(StrictModel):
+    search_windows_days: list[int] = Field(default_factory=list)
     task_id: str
     query: str
     purpose: str = "background"
@@ -313,6 +334,8 @@ class RetrievalLog(StrictModel):
 
 
 class Evidence(BaseModel):
+    recency_role: Literal["recent", "background", "date_unknown"] = "date_unknown"
+    age_days: int | None = None
     id: str
     source_url: HttpUrl | None = None
     file_id: str | None = None
@@ -420,6 +443,7 @@ class EvidenceQualityProfile(StrictModel):
 
 
 class EvidenceAssessment(BaseModel):
+    causal_hypotheses: list[CausalHypothesis] = Field(default_factory=list)
     summary: str
     # Unverified model prose is retained only for audit, never downstream evidence.
     summary_audit: list[str] = Field(default_factory=list)
@@ -529,6 +553,21 @@ class Claim(BaseModel):
     simulation_ids: list[str] = Field(default_factory=list)
 
 
+class ConcretePrediction(BaseModel):
+    id: str = Field(pattern=r"^K[0-9]{3}$")
+    actor: str = Field(min_length=2, max_length=100, description="具体行动主体；未具名时用有明确职责的主体类别")
+    action: str = Field(min_length=6, max_length=180, description="将实际改变的工作步骤或发布的产物，不能仅写合作、开会或提高效率")
+    by_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$", description="未来观察截止日，非声称该日必然发生")
+    observable_result: str = Field(min_length=8, max_length=240)
+    mechanism: str = Field(min_length=8, max_length=240)
+    verification: str = Field(min_length=6, max_length=180)
+    falsifier: str = Field(min_length=6, max_length=180)
+    scenario_names: list[str] = Field(min_length=1, max_length=3, description="引用terminal_definitions.name或outcome_1等已定义槽位；公开报告统一显示名称")
+    evidence_ids: list[str] = Field(default_factory=list)
+    assumption_ids: list[str] = Field(default_factory=list)
+    simulation_ids: list[str] = Field(default_factory=list)
+
+
 class ScenarioDetail(BaseModel):
     name: str = Field(min_length=1)
     definition: str = Field(min_length=1)
@@ -540,6 +579,7 @@ class ScenarioDetail(BaseModel):
 
 
 class Forecast(BaseModel):
+    predictions: list[ConcretePrediction] = Field(default_factory=list, max_length=5)
     status: Literal["completed", "insufficient_evidence", "scenario_only", "partial"]
     probability_basis: Literal["full", "evidence_only"] = "full"
     conclusion: str

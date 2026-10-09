@@ -8,7 +8,7 @@ export function SourceLimitations({ evidence: e }: { evidence: Evidence }) {
   return <div className="source-limitations">
     {e.date_status === 'synthetic' && <span>教学虚构材料</span>}
     {(sourceForm(e) === 'snippet') && <span>只有搜索摘要，未取得正文</span>}
-    {!e.published_at && <span>发布时间未知</span>}
+    {e.published_at ? <span>发布于 {e.published_at.slice(0,10)}{e.age_days != null ? ` · 距预测时 ${e.age_days} 天` : ''} · {e.recency_role === 'recent' ? '近期资料' : e.recency_role === 'background' ? '较旧背景' : '日期为来源声明'}</span> : <span>发布时间未知 · 不证明近期</span>}
     {e.content_truncated && <span>保存文本有截断，不是完整原文</span>}
     {e.availability === 'historical_exercise' && <span>历史回看·非盲测</span>}
     {e.event_status === 'planned' && <span>未来计划，不是已发生的事件</span>}
@@ -57,6 +57,19 @@ export function EvidenceFindingsPanel({ framing, assessment, evidence, onInspect
           <ul>{quality.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
         </details>}
       </section>}
+      {assessment && <section aria-label="事件时间线与因果假说" className="evidence-timeline">
+        <h4>事件时间线与因果假说</h4>
+        <p className="muted">优先用正文事件日期；未明确时用文章发布日期并标记。报道先后不等于事件先后，时间顺序不证明因果。</p>
+        <ol>{[...(assessment.findings || [])].filter(f => f.event_time).sort((a,b) => a.event_time!.date.localeCompare(b.event_time!.date)).map(f => <li key={f.id}>
+          <strong>{f.event_time!.date} · {f.event_time!.basis === 'publication_date' ? `报道日期（${f.event_time!.source_evidence_id}），事件时间未明确` : f.event_time!.status === 'planned' ? '计划 / 预期' : '来源记载的行动'} · {f.id}</strong>
+          <p>{f.claim}</p>{f.event_time!.date_quote && <blockquote>{f.event_time!.date_quote}</blockquote>}
+          {f.citations.map((c,i) => <button className="text-button" key={i} onClick={() => onInspectCitation(c)}>核对事件原文 · {c.evidence_id}</button>)}
+        </li>)}</ol>
+        {!(assessment.findings || []).some(f => f.event_time) && <p>尚无明确事件日期或文章发布日期，无法定位时间；保留在下方未定日期发现中。</p>}
+        <p className="muted">事件日期与发布日期均未知的发现：{(assessment.findings || []).filter(f => !f.event_time).map(f => f.id).join('、') || '无'}</p>
+        {(assessment.causal_hypotheses || []).map((c,i) => <article key={i} className="finding-card"><strong>待验证因果假说 · {c.from_finding_id} → {c.to_finding_id}</strong><p>{c.chronology_basis === 'report_order' ? '仅按报道顺序关联，实际事件先后待核实。' : '事件先后有引文依据，因果仍待验证。'} 机制推断：{c.mechanism}</p><p>替代解释：{c.alternative}</p><p>如何验证：{c.verification}</p></article>)}
+        {!assessment.causal_hypotheses?.length && <p className="muted">当前没有通过时间端点校验的因果假说；不把同时出现或先后报道当作原因。</p>}
+      </section>}
       <div className="findings-filters">
         <label className="field"><span>按前提筛选</span><select aria-label="按前提筛选" value={premise} onChange={e => setPremise(e.target.value)}><option value="">所有前提</option>{framing.premises.filter(p => p.user_review !== 'rejected').map(p => <option value={p.id} key={p.id}>{p.id} {p.content}</option>)}</select></label>
         <label className="field"><span>按关系筛选</span><select aria-label="按关系筛选" value={relation} onChange={e => setRelation(e.target.value)}><option value="">所有关系</option>{Object.entries(relations).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -85,7 +98,7 @@ export function EvidenceFindingsPanel({ framing, assessment, evidence, onInspect
         </article>
       })}</div>}
       {!!assessment?.gap_details?.length && <details><summary>缺口及取证限制（{assessment.gap_details.length}）</summary>{assessment.gap_details.map((g,i) => <p key={i}>{g.missing}<small> · {g.attempted_query_ids.join('、')}</small></p>)}</details>}
-      {!!assessment?.retrieval_log?.length && <details><summary>查看实际检索记录</summary>{assessment.retrieval_log.map(l => <article className="retrieval-log" key={l.task_id}><strong>{l.task_id} · {l.query}</strong><p>{l.status === 'failed' ? `检索失败：${l.error}` : l.status === 'empty' ? '未返回资料' : `返回 ${l.result_count} 条候选`}</p></article>)}</details>}
+      {!!assessment?.retrieval_log?.length && <details><summary>查看实际检索记录</summary>{assessment.retrieval_log.map(l => <article className="retrieval-log" key={l.task_id}><strong>{l.task_id} · {l.query}</strong>{!!l.search_windows_days?.length && <p>检索窗口：{l.search_windows_days.map(d => `近 ${d} 天`).join(" → ")}</p>}<p>{l.status === 'failed' ? `检索失败：${l.error}` : l.status === 'empty' ? '未返回资料' : `返回 ${l.result_count} 条候选`}</p></article>)}</details>}
       {!!assessment?.rejected_findings?.length && <details className="rejected-findings"><summary><strong>校验未通过</strong>（{assessment.rejected_findings.length}）</summary><p>下列候选未进入有效发现和下游事实依据。</p>{assessment.rejected_findings.map((r,i) => <p key={i}>{r.reason}</p>)}</details>}
     </div>
   </section>

@@ -10,8 +10,12 @@ from app.storage import RunStore
 
 
 @pytest.mark.parametrize("fixture", ["actor_scope_question_framing.json", "combined_scope_question_framing.json"])
-def test_actual_actor_scope_and_pure_questions_are_removed_in_one_analysis(tmp_path, fixture):
+def test_actual_actor_scope_and_pure_questions_are_removed_in_one_analysis(tmp_path, fixture, monkeypatch):
     raw = json.loads((Path(__file__).parent / "fixtures" / fixture).read_text())
+    from datetime import datetime
+    from app import future_only
+    frozen = datetime.fromisoformat(raw["proposed_spec"]["as_of"].replace("Z", "+00:00"))
+    monkeypatch.setattr(future_only, "utcnow", lambda: frozen)
     keys = {"content", "origin", "source_input_id", "original_span", "rationale", "replaces_id"}
     output = FramingCandidate(proposed_spec=raw["proposed_spec"],
         premises=[{k:v for k,v in p.items() if k in keys} for p in raw["premises"]],

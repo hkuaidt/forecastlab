@@ -4,6 +4,7 @@ import { EvidenceFindingsPanel, SourceLimitations, sliceCodepoints } from '../co
 import { api } from '../api'
 import { reportFailed, reportFailureReason } from '../researchStatus'
 import { statusNames, type MapNode } from './ExecutionMap'
+import { ConcretePredictions } from './ConcretePredictions'
 import { StageReader } from './StageReader'
 import { RecordReferences } from './RecordReferences'
 import { contentNature, savedSourceAction, sourceForm, sourceReferenceLabel } from '../contentLabels'
@@ -23,7 +24,8 @@ function ReportSummary({run,onNew,onRepair,repairing,onSource}:{run:Run;onNew:()
   {rejected&&<section className="report-repair notice warning"><h4>报告未通过检查</h4><p>自动摘要未通过质量检查，未作为研究结论展示。原始推演及被拒绝的版本保留在导出记录中。</p><p>{reportFailureReason(run)}</p>{run.report_repair?.available&&onRepair?<><p>先核验现有来源和推演记录，通过后在新的研究记录中重试报告。原始记录保留。</p><button className="primary" disabled={repairing} onClick={onRepair}>{repairing?'正在检查…':'检查并重试报告 ↗'}</button></>:<p>请根据上述原因修正来源或创建后续研究。</p>}</section>}
   {!rejected&&!f?.probabilities&&run.report_repair?.available&&onRepair&&<button className="primary" disabled={repairing} onClick={onRepair}>{repairing?'正在检查…':'重新生成概率 ↗'}</button>}
   {run.parent_run_id&&!run.report_repair_parent&&<p className="notice">本研究关联了此前记录，重新取证与推演的过程见画布。<a href={`#/research/${encodeURIComponent(run.parent_run_id)}/report`}>查看原始研究 ↗</a></p>}
-  {run.report_repair_parent&&<p className="notice">本报告由失败记录重新核验后生成。<a href={`#/research/${encodeURIComponent(run.report_repair_parent)}/report`}>查看原始记录 ↗</a></p>}
+  {run.report_repair_parent&&<p className="notice">本报告沿用已保存资料，重新核验后生成。<a href={`#/research/${encodeURIComponent(run.report_repair_parent)}/report`}>查看原始记录 ↗</a></p>}
+  {!rejected&&<ConcretePredictions run={run} onSource={onSource}/>}
   {!rejected&&!!f?.scenario_details?.length&&<section className="scenario-comparison"><h3>情景定义与概率理由</h3>{f.scenario_details.map(s=><article className="scenario-detail" key={s.name}><div className="section-line"><h4>{s.name}</h4>{f.probabilities?.[s.name]!==undefined&&<strong>{(f.probabilities[s.name]*100).toFixed(1)}%</strong>}</div><p className="scenario-definition">{s.definition}</p><h5>触发条件</h5><List items={s.conditions}/><h5>相对概率与不确定性</h5><p>{s.rationale}</p><RecordReferences run={run} evidenceIds={s.evidence_ids} assumptionIds={s.assumption_ids} simulationIds={s.simulation_ids} onSource={onSource}/></article>)}</section>}
   {!rejected&&<>
   <section className="report-section"><div className="report-section-title"><span>01</span><h4>关键拐点与依据</h4></div>{(!rejected?f?.supporting:[])?.map((c,i)=><article className="conclusion-entry" key={i}><p>{c.text}</p><RecordReferences run={run} evidenceIds={c.evidence_ids} assumptionIds={c.assumption_ids} simulationIds={c.simulation_ids} onSource={onSource}/></article>)}{!f?.supporting.length&&<p className="subtle">暂无可报告的支持依据。</p>}</section>

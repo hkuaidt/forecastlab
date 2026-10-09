@@ -17,7 +17,7 @@ def tasks():
 def install(monkeypatch, fn):
     assert hasattr(S, "retrieve_evidence"), "structured retrieval not implemented"
     monkeypatch.setattr(S.config, "TAVILY_API_KEY", "test-only")
-    monkeypatch.setattr(S, "_search_one", fn)
+    monkeypatch.setattr(S, "_search_one", lambda q, **kwargs: fn(q))
 
 
 def test_three_query_buckets_survive_ten_source_limit(tmp_path, monkeypatch):
@@ -74,7 +74,7 @@ def test_partial_and_total_failure_keep_logs(tmp_path, monkeypatch):
     result = S.retrieve_evidence(question(), tasks(), tmp_path)
     assert result.status == "partial" and len(result.retrieval_log) == 3
     assert "test-only" not in result.model_dump_json()
-    monkeypatch.setattr(S, "_search_one", lambda q: (_ for _ in ()).throw(httpx.ConnectError("offline")))
+    monkeypatch.setattr(S, "_search_one", lambda q, **kwargs: (_ for _ in ()).throw(httpx.ConnectError("offline")))
     result = S.retrieve_evidence(question(), tasks(), tmp_path)
     assert result.status == "failed" and all(x.status == "failed" for x in result.retrieval_log)
 

@@ -34,7 +34,7 @@ def test_ordered_partition_uses_slots_not_list_order_and_never_changes_weights(c
 
 def test_contract_is_in_model_task_and_json_schema_before_generation():
     task=definition_first_task({"outcomes":[]})
-    assert task["version"]==WIRE_FORMAT=="definition-first-ordered-v2"
+    assert task["version"]==WIRE_FORMAT=="definition-first-specific-v3"
     assert task["partition_contract"]["three_slots"]==["outcome_1: A=definition1","outcome_2: NOT A AND B=definition2","outcome_3: NOT A AND NOT B"]
     assert task["partition_contract"]["two_slots"][-1]=="outcome_2: NOT A"
     schema=DefinitionFirstForecast.model_json_schema()

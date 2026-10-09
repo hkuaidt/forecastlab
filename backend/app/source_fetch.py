@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 from html.parser import HTMLParser
 import ipaddress
+import json
 import queue
 import re
 import socket
@@ -90,6 +91,7 @@ class _PageText(HTMLParser):
         self.link_chars = [0, 0]
         self.gated = False
         self.in_title = False
+        self.dates = {}
 
     def _break(self):
         self.all_text.append("\n")
@@ -99,6 +101,14 @@ class _PageText(HTMLParser):
         # HTML permits attributes without an explicit value (e.g. <main class>).
         # HTMLParser returns None for these, including ordinary string attributes.
         attrs = {name: value if value is not None else "" for name, value in attrs}
+        name = (attrs.get("property") or attrs.get("name") or attrs.get("itemprop") or "").lower()
+        field = {"article:published_time": "published_at", "datepublished": "published_at",
+                 "pubdate": "published_at", "publishdate": "published_at",
+                 "citation_publication_date": "published_at", "citation_date": "published_at",
+                 "article:modified_time": "updated_at", "datemodified": "updated_at"}.get(name)
+        value = attrs.get("content") if tag == "meta" else attrs.get("datetime") if tag == "time" else None
+        if field and value:
+            self.dates.setdefault(field, value)
         marker = (attrs.get("id", "") + " " + attrs.get("class", "")).lower()
         if re.search(r"(?:^|[\s_-])(?:paywall|login-wall|cookie-wall|subscribe-wall)(?:$|[\s_-])", marker):
             self.gated = True
@@ -167,6 +177,34 @@ class _PageText(HTMLParser):
         return text, "article_or_main" if selected else "visible_page_text"
 
 
+def extract_page_dates(html, text, explicit=None):
+    dates = dict(explicit or {})
+    def articles(value):
+        if isinstance(value, list):
+            for child in value:
+                yield from articles(child)
+        elif isinstance(value, dict):
+            kinds = value.get("@type", [])
+            kinds = [kinds] if isinstance(kinds, str) else kinds
+            if isinstance(kinds, list) and set(kinds) & {"Article", "NewsArticle", "BlogPosting", "ScholarlyArticle", "TechArticle"}:
+                yield value
+            for key in ("@graph", "mainEntity"):
+                yield from articles(value.get(key))
+    for match in re.finditer(r"<script\b[^>]*type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script\s*>", html, re.I | re.S):
+        try:
+            for article in articles(json.loads(match.group(1))):
+                for key, field in (("datePublished", "published_at"), ("dateModified", "updated_at")):
+                    if isinstance(article.get(key), str):
+                        dates.setdefault(field, article[key])
+        except (ValueError, TypeError, RecursionError):
+            continue
+    # Explicit publication labels near the article beginning only; no URL/footer inference.
+    label = re.search(r"(?:发布时间|发布日期|发布于)\s*[:：]?\s*(20\d{2}[-/]\d{1,2}[-/]\d{1,2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)", text[:1000])
+    if label:
+        dates.setdefault("published_at", label.group(1))
+    return dates
+
+
 async def _read_body(url: str) -> tuple[str, dict]:
     current, redirects = url, []
     for hop in range(MAX_REDIRECTS + 1):
@@ -224,6 +262,7 @@ async def _read_body(url: str) -> tuple[str, dict]:
                     decoded = body.decode(charset, errors="replace")
                 except LookupError:
                     decoded = body.decode("utf-8", errors="replace")
+                dates = {}
                 if mime == "text/plain":
                     text, extraction = decoded.strip(), "plain_text"
                     if re.search(r"verify (?:that )?you are human|sign in to (?:continue|read)|subscribe to (?:continue|read)|请输入验证码", text[:1500], re.I):
@@ -235,7 +274,8 @@ async def _read_body(url: str) -> tuple[str, dict]:
                     parser.feed(decoded)
                     parser.close()
                     text, extraction = parser.extract()
-                return text, {"final_url": current, "redirects": redirects,
+                    dates = extract_page_dates(decoded, text, parser.dates)
+                return text, {**dates, "final_url": current, "redirects": redirects,
                               "http_status": 200, "content_type": mime,
                               "extraction": extraction, "response_bytes": len(body),
                               "transport": "direct_pinned_public_ip"}

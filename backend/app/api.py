@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from . import config
+from .future_only import current_question, validate_future, reject_exercise
 from .demo import DEMO_QUESTION, demo_evidence
 from .graph import execute
 from .schemas import QuestionDraft, QuestionSpec, RunRecord, RunRequest, Settlement, SettlementRequest, utcnow
@@ -123,6 +124,10 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
 
     @app.post("/api/questions/parse")
     def parse_question(draft: QuestionDraft):
+        try:
+            draft = current_question(draft)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         missing = []
         if draft.mode == "binary":
             if not draft.resolve_by:
@@ -174,6 +179,13 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
             if request.evidence_mode == "reuse" and parent and parent.demo:
                 raise HTTPException(422, "教学虚构来源不能复用为真实运行的证据；请使用教学模式或真实证据包")
             question, framing, preparation = resolve_run_input(request, store)
+            if request.evidence_mode != "demo":
+                validate_future(question)
+                reject_exercise(request.evidence)
+                if request.evidence_mode == "reuse" and parent:
+                    reject_exercise(parent.evidence)
+                if not request.confirmation_id:
+                    question = current_question(question)
             retrieval = None
             if request.evidence_mode == "demo":
                 if framing:
@@ -281,6 +293,12 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
             raise HTTPException(409, "已有预测正在运行；请等待完成后再重试。")
         try:
             record = required(run_id)
+            if not record.demo:
+                try:
+                    validate_future(record.question)
+                    reject_exercise(record.evidence)
+                except ValueError as exc:
+                    raise HTTPException(422, str(exc)) from exc
             if record.status not in {"failed", "partial", "interrupted", "cancelled"}:
                 raise HTTPException(409, "只有失败、中断、已停止或部分完成的运行可以继续")
             if "forecast" in record.stage_outputs:
@@ -300,6 +318,11 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
             raise HTTPException(409, "已有预测正在运行；请等待完成后再重试。")
         try:
             parent = required(run_id)
+            try:
+                validate_future(parent.question)
+                reject_exercise(parent.evidence)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
             if not report_repair_info(parent)["available"]:
                 raise HTTPException(409, "只有上游阶段完整的失败报告可以重新生成")
             if not config.MODEL_API_KEY:
@@ -308,6 +331,31 @@ def create_app(data_dir: Path | None = None, *, question_model_factory=None) -> 
                 child = prepare_report_repair(parent, store.directory)
             except (ValueError, OSError, KeyError) as exc:
                 raise HTTPException(422, f"报告修复前的原文与轨迹核验未通过：{exc}") from exc
+            store.save(child)
+            schedule(child, child.evidence, background_tasks, resume=True)
+            return JSONResponse(status_code=202, content={"run_id": child.run_id,
+                "parent_run_id": parent.run_id, "status": "queued"})
+        except Exception:
+            run_lock.release()
+            raise
+
+    @app.post("/api/runs/{run_id}/refine-report", status_code=202)
+    def refine_report(run_id: str, background_tasks: BackgroundTasks):
+        if not run_lock.acquire(blocking=False):
+            raise HTTPException(409, "已有预测正在运行；请等待完成后再重试。")
+        try:
+            parent = required(run_id)
+            try:
+                validate_future(parent.question)
+                reject_exercise(parent.evidence)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            if not config.MODEL_API_KEY:
+                raise HTTPException(503, "未配置模型密钥")
+            try:
+                child = prepare_report_repair(parent, store.directory, refine=True)
+            except (ValueError, OSError, KeyError) as exc:
+                raise HTTPException(422, f"报告细化前的原文与轨迹核验未通过：{exc}") from exc
             store.save(child)
             schedule(child, child.evidence, background_tasks, resume=True)
             return JSONResponse(status_code=202, content={"run_id": child.run_id,

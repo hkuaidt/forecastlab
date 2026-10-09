@@ -2,14 +2,18 @@
 from __future__ import annotations
 import json
 import re
+from datetime import datetime, timezone
 from ..schemas import (AssessmentCandidate, EvidenceAssessment, EvidenceFinding, RejectedFinding,
-                       ConflictDetail, GapDetail, EvidencePassage)
+                       ConflictDetail, GapDetail, EvidencePassage, EventTime)
 from ..provenance import load_snapshot, save_snapshot, split_passages, select_passages, resolve_citation
 from ..llm import BudgetExceeded, ModelCancelled
 from ..evidence_quality import build_quality_profile
 from ..cutoff_gaps import is_future_outcome_gap
 
-PROMPT = """先识别用户问题的不同任务，从全部来源中为每个任务优先选择一条能回答具体事实问题的发现，再补真正改变判断的边界；材料不足的任务只写gap，不用其他任务的资料替代。
+PROMPT = """优先分析近90天资料。recency_role=background只用于历史基线，不能证明当前状态；date_unknown不能当作近期资料。
+先梳理主体采取行动的事件时间线，再提出条件化因果解释。每项finding若引文明确说明事件发生/计划日期（精确到日），填写event_time={date:YYYY-MM-DD,date_quote:包含日期和对应行动的完整原句,status:observed或planned}；date_quote必须是该finding某条citation.quote的连续原文。无精确事件日则event_time=null，由服务器用有效引用来源的文章发布日期补入报道时间线并标注publication_date；不要自行填充或猜测。爬取日期绝不可作为文章发布日期。
+最多3条causal_hypotheses，每条用from_finding_id/to_finding_id引用候选序号F001等，两个端点须有事件日期或引用来源的明确发布日期，前一时间早于后一时间。若用发布日期，只能梳理报道顺序，不证明实际事件先后，verification须指出需补充事件时间。mechanism写“若…则…”机制推断，alternative写具体共同原因或替代解释，verification写需要哪种记录才能区分解释。它们全部是待验证假说，不是已证实因果；缺少事件和发布日期或机制就不连线，不为凑时间线编造事实。
+先识别用户问题的不同任务，从全部来源中为每个任务优先选择一条能回答具体事实问题的发现，再补真正改变判断的边界；材料不足的任务只写gap，不用其他任务的资料替代。
 最多8条finding是上限，不是目标数量；不顺序逐源逐段总结，不为技术术语或同一机制的实现细节单列发现。同源中有不同决策价值的事实可以保留，不设每源硬配额。
 只依据提供的原文段落，不用模型记忆补事实。先选择能独立支持一项具体判断的完整原文quote，再生成finding.claim。
 每项必须给E编号、快照hash、paragraph_id和逐字quote；不能引用未给段落、拼接不相邻原文，不输出字符偏移。
@@ -135,7 +139,43 @@ def active_framing(framing):
     return data
 
 
-def validate_findings(candidate, framing, evidence, passages):
+def explicit_dates(text):
+    """Only explicit calendar days; never derive dates from publication/crawl metadata."""
+    dates = set()
+    for y, m, d in re.findall(r"(?<!\d)(20\d{2})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})(?:\s*日|(?!\d))", text):
+        try:
+            dates.add(datetime(int(y), int(m), int(d)).strftime("%Y-%m-%d"))
+        except ValueError:
+            pass
+    month_pattern = "|".join(_MONTH_NUMBERS)
+    for m, d, y in re.findall(rf"\b({month_pattern})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?[,]?\s+(20\d{{2}})\b", text, re.I):
+        try:
+            dates.add(datetime(int(y), int(_MONTH_NUMBERS[m.lower()]), int(d)).strftime("%Y-%m-%d"))
+        except ValueError:
+            pass
+    for d, m, y in re.findall(rf"\b(\d{{1,2}})\s+({month_pattern})\.?[,]?\s+(20\d{{2}})\b", text, re.I):
+        try:
+            dates.add(datetime(int(y), int(_MONTH_NUMBERS[m.lower()]), int(d)).strftime("%Y-%m-%d"))
+        except ValueError:
+            pass
+    return dates
+
+
+def validate_causal_hypotheses(candidate, findings):
+    by_id = {f.id: f for f in findings}
+    kept, rejected = [], []
+    for link in candidate.causal_hypotheses:
+        before, after = by_id.get(link.from_finding_id), by_id.get(link.to_finding_id)
+        if (before and after and before.event_time and after.event_time
+                and before.event_time.date < after.event_time.date):
+            kept.append(link.model_copy(update={"chronology_basis": "event_order" if before.event_time.basis == after.event_time.basis == "event_quote" else "report_order"}))
+        else:
+            rejected.append(RejectedFinding(candidate={"causal_hypothesis": link.model_dump()},
+                reason="因果假说端点无有效事件日期、引用被拒绝或先后顺序不成立；未进入下游"))
+    return kept, rejected
+
+
+def validate_findings(candidate, framing, evidence, passages, as_of=None):
     sources = {e.id: e for e in evidence}
     active = {p.id for p in framing.premises if p.user_review != "rejected"} if framing else set()
     valid, rejected = [], []
@@ -152,8 +192,29 @@ def validate_findings(candidate, framing, evidence, passages):
             if boundary_issues:
                 raise ValueError("exact-quote claim boundary 越界：" + "；".join(boundary_issues) +
                                  "。删除 quote 外信息；可在 limitation 明确标为未核实，不得改写成 summary 中的事实。")
+            event_time = finding.event_time
+            if event_time:
+                try:
+                    if event_time.basis != "event_quote" or not event_time.date_quote:
+                        raise ValueError("模型只能提取事件原句，发布日期回退由服务器处理")
+                    day = datetime.strptime(event_time.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    if not any(event_time.date_quote in c.quote for c in citations):
+                        raise ValueError("事件日期原句不在该发现的有效引文内")
+                    if event_time.date not in explicit_dates(event_time.date_quote):
+                        raise ValueError("事件日期未在原句中明确到日，不能借用发布日期")
+                    if as_of and day.date() > as_of.date() and event_time.status != "planned":
+                        raise ValueError("未来日期不能标为已发生")
+                except ValueError as exc:
+                    rejected.append(RejectedFinding(candidate={"event_time": event_time.model_dump(), "candidate_index": index}, reason=str(exc)))
+                    event_time = None
+            if event_time is None:
+                dated = [sources[c.evidence_id] for c in citations if sources[c.evidence_id].published_at]
+                if dated:
+                    source = min(dated, key=lambda e: e.published_at)
+                    event_time = EventTime(date=source.published_at.date().isoformat(), basis="publication_date",
+                                           source_evidence_id=source.id, status="unknown")
             valid.append(EvidenceFinding(id=f"F{index+1:03}", target_premise_ids=finding.target_premise_ids,
-                claim=finding.claim, relation=finding.relation, citations=citations, limitation=finding.limitation))
+                claim=finding.claim, relation=finding.relation, citations=citations, limitation=finding.limitation, event_time=event_time))
         except ValueError as exc:
             rejected.append(RejectedFinding(candidate={"candidate_index": index, **finding.model_dump(mode="json")}, reason=str(exc)))
     return valid, rejected
@@ -194,6 +255,8 @@ def _source_gaps(retrieval):
             gaps.append(GapDetail(missing=f"检索任务 {log.task_id} 失败：{log.error}", attempted_query_ids=[log.task_id], cause="retrieval_failed"))
         elif log.status == "empty":
             gaps.append(GapDetail(missing=f"检索任务 {log.task_id} 未返回资料", attempted_query_ids=[log.task_id], cause="not_found"))
+    if retrieval.evidence and not any(e.recency_role == "recent" for e in retrieval.evidence):
+        gaps.append(GapDetail(missing="未取得有明确发布时间的近90天资料，不能把背景或日期未知材料当作当前状态；需要补充近期原始行动记录。", cause="not_found"))
     unknown_dates = []
     for e in retrieval.evidence:
         if e.content_kind == "snippet":
@@ -319,9 +382,11 @@ def assess_evidence(question, framing, retrieval, model, data_dir, *, on_progres
             candidate, target_audit = normalize_empty_premise_targets(candidate, framing)
             if target_audit:
                 assessment.summary_audit.append(target_audit)
-            findings, rejected = validate_findings(candidate, framing, good_sources, passages)
+            findings, rejected = validate_findings(candidate, framing, good_sources, passages, question.as_of)
             conflicts, gaps, more_rejected = _details(candidate, findings, framing, retrieval.retrieval_log, question)
             rejected += more_rejected
+            assessment.causal_hypotheses, causal_rejected = validate_causal_hypotheses(candidate, findings)
+            rejected += causal_rejected
             assessment.summary_audit.append(candidate.summary)
             assessment.findings, assessment.conflict_details = findings, conflicts
             assessment.findings_validated = True
@@ -417,6 +482,7 @@ def make_evidence_context(evidence, assessment, *, max_chars_per_source: int) ->
     visible.summary_audit = []
     visible.summary = verified_coverage_summary(visible)
     ids = {f.id for f in kept}
+    visible.causal_hypotheses = [c for c in visible.causal_hypotheses if {c.from_finding_id, c.to_finding_id} <= ids]
     visible.conflict_details = [c for c in visible.conflict_details if set(c.finding_ids) <= ids]
     if omitted:
         visible.summary = f"本次模型上下文保留{len(kept)}项可追查发现，省略{len(omitted)}项。"

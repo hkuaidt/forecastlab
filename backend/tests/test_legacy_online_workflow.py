@@ -63,7 +63,7 @@ def online_dependencies(monkeypatch):
     monkeypatch.setattr(config, "TAVILY_API_KEY", "fixture-search-key")
     monkeypatch.setattr(G, "ModelClient", lambda **kwargs: DirectOnlineModel(state, **kwargs))
 
-    def search(query):
+    def search(query, **kwargs):
         state["search_calls"].append(query)
         if state["fail_search"]:
             raise RuntimeError("fixture provider unavailable")
@@ -102,7 +102,7 @@ def test_direct_online_input_validates_full_source_and_finishes_report(tmp_path,
         assert snapshot.text[citation.start:citation.end] == citation.quote
         assert citation.quote == "项目的核心测试已经通过。"
         assert record.stage_outputs["evidence"]["evidence_assessment"]["findings_validated"]
-        assert online_dependencies["search_calls"] == ["项目 发布进展"]
+        assert online_dependencies["search_calls"] == ["项目 发布进展", "项目 发布进展"]
         assert [role for role, _ in online_dependencies["model_calls"]] == [
             "question", "evidence12", "world", "review", "forecast"]
         evidence_payload = online_dependencies["model_calls"][1][1]
@@ -128,7 +128,7 @@ def test_world_failure_resumes_saved_online_evidence_without_search_or_reassessm
         assert resumed.status == "completed", resumed.errors
         assert resumed.resume_count == 1
         assert resumed.stage_outputs["evidence"] == before_evidence
-        assert online_dependencies["search_calls"] == ["项目 发布进展"]
+        assert online_dependencies["search_calls"] == ["项目 发布进展", "项目 发布进展"]
         assert [role for role, _ in online_dependencies["model_calls"]] == [
             "question", "evidence12", "world", "world", "review", "forecast"]
         assert resumed.usage["calls"] == 6

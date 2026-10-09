@@ -194,7 +194,7 @@ def test_batch_deadline_and_concurrency_limit(monkeypatch):
 
 def test_only_selected_brave_results_fetched_and_snapshot_hash_offsets_match(monkeypatch, tmp_path):
     monkeypatch.setattr(S.config, "BRAVE_SEARCH_API_KEY", "test-only")
-    monkeypatch.setattr(S, "_search_one", lambda q: [
+    monkeypatch.setattr(S, "_search_one", lambda q, **kwargs: [
         {"url": f"https://public.example/{q}/{i}", "title": f"Research {q} {i}",
          "content": f"Search excerpt {q} {i}", "score": .9} for i in range(8)])
     fetched = []
@@ -222,7 +222,7 @@ def test_only_selected_brave_results_fetched_and_snapshot_hash_offsets_match(mon
 def test_tavily_existing_body_does_not_trigger_extra_fetch(monkeypatch, tmp_path):
     monkeypatch.setattr(S.config, "BRAVE_SEARCH_API_KEY", "")
     monkeypatch.setattr(S.config, "TAVILY_API_KEY", "test-only")
-    monkeypatch.setattr(S, "_search_one", lambda q: [{"url": "https://public.example/article", "raw_content": PROSE, "score": .9}])
+    monkeypatch.setattr(S, "_search_one", lambda q, **kwargs: [{"url": "https://public.example/article", "raw_content": PROSE, "score": .9}])
     monkeypatch.setattr(F, "fetch_selected_bodies", lambda urls: pytest.fail("Unexpected extra fetch"))
     q = QuestionSpec(question="What is the future research outlook?", mode="scenario", as_of=utcnow())
     assert S.retrieve_evidence(q, [], tmp_path).evidence[0].content_kind == "body"

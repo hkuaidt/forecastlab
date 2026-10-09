@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse, urlsplit, urlunsplit, parse_qsl, urlencode
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import math
 import re
 import time
@@ -92,7 +92,7 @@ def _parse_date(value):
     if not isinstance(value, str) or not value.strip():
         return None
     try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00").replace("/", "-"))
         return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
     except ValueError:
         return None
@@ -102,8 +102,10 @@ _brave_lock = threading.Lock()
 _brave_last_request = 0.0
 
 
-def _search_one(query: str) -> list[dict]:
+def _search_one(query: str, *, days: int = 90, as_of=None) -> list[dict]:
     """Read a bounded streaming body; do not download unlimited text then truncate."""
+    as_of = as_of or utcnow()
+    freshness = f"{(as_of-timedelta(days=days)):%Y-%m-%d}to{as_of:%Y-%m-%d}"
     if config.BRAVE_SEARCH_API_KEY:
         global _brave_last_request
         with _brave_lock:
@@ -113,7 +115,7 @@ def _search_one(query: str) -> list[dict]:
             with client.stream(
                 "GET", "https://api.search.brave.com/res/v1/web/search",
                 headers={"X-Subscription-Token": config.BRAVE_SEARCH_API_KEY, "Accept": "application/json"},
-                params={"q": query[:400], "count": 8, "extra_snippets": "true"},
+                params={"q": query[:400], "count": 8, "extra_snippets": "true", "freshness": freshness},
             ) as response:
                 response.raise_for_status()
                 content = bytearray()
@@ -130,6 +132,7 @@ def _search_one(query: str) -> list[dict]:
              "content": html.unescape(re.sub(r"<[^>]+>", "", "\n".join(
                  [row.get("description") or "",
                   *[value for value in row.get("extra_snippets", []) if isinstance(value, str)]]))),
+             "page_age": row.get("page_age"), "search_window_days": days,
              "score": max(.1, 1 - i * .08)}
             for i, row in enumerate(results[:8]) if isinstance(row, dict)
         ]
@@ -138,6 +141,7 @@ def _search_one(query: str) -> list[dict]:
             "api_key": config.TAVILY_API_KEY, "query": query,
             "search_depth": "basic", "max_results": 8,
             "include_raw_content": "text", "include_answer": False,
+            "start_date": (as_of-timedelta(days=days)).strftime("%Y-%m-%d"), "end_date": as_of.strftime("%Y-%m-%d"),
         }) as response:
             response.raise_for_status()
             content = bytearray()
@@ -149,7 +153,7 @@ def _search_one(query: str) -> list[dict]:
     results = payload.get("results", [])
     if not isinstance(results, list):
         raise ValueError("检索响应缺少资料数组")
-    return [r for r in results[:8] if isinstance(r, dict)]
+    return [{**r, "search_window_days": days} for r in results[:8] if isinstance(r, dict)]
 
 
 def group_sources(candidates: list[SourceCandidate]) -> list[SourceCandidate]:
@@ -201,10 +205,19 @@ def group_sources(candidates: list[SourceCandidate]) -> list[SourceCandidate]:
     return unique
 
 
-def select_candidates(buckets: dict[str, list[SourceCandidate]], *, limit: int = 10) -> list[SourceCandidate]:
+def _recency_rank(candidate, as_of):
+    date = candidate.published_at or _parse_date(candidate.metadata.get("page_age"))
+    if date:
+        age = (as_of - date).days
+        return (0 if candidate.published_at else 1) if 0 <= age <= 90 else 2 if age <= 365 else 3
+    return 1 if candidate.metadata.get("search_window_days", 365) <= 90 else 2
+
+
+def select_candidates(buckets: dict[str, list[SourceCandidate]], *, limit: int = 10, as_of=None) -> list[SourceCandidate]:
     unique = group_sources([c for bucket in buckets.values() for c in bucket])
+    as_of = as_of or utcnow()
     def rank(c):
-        return (-c.score, -int(c.has_body), -int(c.published_at is not None), c.url)
+        return (_recency_rank(c, as_of), -c.score, -int(c.has_body), c.url)
     chosen = []
     # Reserve representation for each query with eligible results, not a pro/con quota.
     for query_id in buckets:
@@ -220,7 +233,7 @@ def select_candidates(buckets: dict[str, list[SourceCandidate]], *, limit: int =
         if not remaining:
             break
         known_groups = {c.source_group for c in chosen}
-        remaining.sort(key=lambda c: (-(c.score + .1*int(c.has_body) + .05*int(c.source_group not in known_groups)), c.url))
+        remaining.sort(key=lambda c: (_recency_rank(c, as_of), -(c.score + .1*int(c.has_body) + .05*int(c.source_group not in known_groups)), c.url))
         chosen.append(remaining[0])
     return chosen
 
@@ -237,14 +250,28 @@ def retrieve_evidence(question: QuestionSpec, tasks, data_dir: Path):
     tasks = tasks or [RetrievalTask(id="R001", query=question.question[:400], purpose="background")]
     def search(task):
         start = time.monotonic()
-        try:
-            result = _search_one(task.query)
-            return result, RetrievalLog(task_id=task.id, query=task.query, purpose=task.purpose,
-                status="success" if result else "empty", result_count=len(result), elapsed_seconds=time.monotonic()-start)
-        except Exception as exc:
-            detail = f"HTTP {exc.response.status_code}" if isinstance(exc, httpx.HTTPStatusError) else type(exc).__name__
-            return [], RetrievalLog(task_id=task.id, query=task.query, purpose=task.purpose,
-                status="failed", error=detail, elapsed_seconds=time.monotonic()-start)
+        result, windows, errors = [], [], []
+        for days in (90, 365):
+            windows.append(days)
+            try:
+                rows = _search_one(task.query, days=days, as_of=question.as_of)
+                seen = {canonical_source_url(r.get("url", "")) for r in result}
+                for row in rows:
+                    key = canonical_source_url(row.get("url", ""))
+                    if key not in seen:
+                        result.append({**row, "search_window_days": days})
+                        seen.add(key)
+                usable = {r.get("url") for r in result if public_url(str(r.get("url", "")))
+                          and (r.get("raw_content") or r.get("content"))}
+                if len(usable) >= 3:
+                    break
+            except Exception as exc:
+                detail = f"HTTP {exc.response.status_code}" if isinstance(exc, httpx.HTTPStatusError) else type(exc).__name__
+                errors.append(detail)
+                break  # a network/auth failure is not evidence scarcity
+        return result, RetrievalLog(task_id=task.id, query=task.query, purpose=task.purpose,
+            status="success" if result else "failed" if errors else "empty", result_count=len(result),
+            elapsed_seconds=time.monotonic()-start, error="；".join(errors) or None, search_windows_days=windows)
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         responses = list(pool.map(search, tasks))
     buckets, logs, exclusions = {}, [], []
@@ -274,13 +301,13 @@ def retrieve_evidence(question: QuestionSpec, tasks, data_dir: Path):
                 exclusions.append({"source": url, "reason": "未通过基础查询相关性检查"})
                 continue
             score = max(min(1.0, score), min(.8, overlap / max(1, len(text_terms(task.query)))))
-            metadata = {k: result.get(k) for k in ("published_date", "published_at", "updated_at", "event_at", "score") if result.get(k) is not None}
+            metadata = {k: result.get(k) for k in ("published_date", "published_at", "updated_at", "event_at", "score", "page_age", "search_window_days") if result.get(k) is not None}
             metadata["content_hash"] = hashlib.sha256(text.encode()).hexdigest()
             alias = SourceAlias(source_url=url, publisher=urlparse(url).hostname, published_at=published, updated_at=updated, metadata=metadata)
             buckets[task.id].append(SourceCandidate(url=url, title=title, text=text,
                 has_body=bool(result.get("raw_content")), score=score, query_ids=[task.id], aliases=[alias],
                 metadata=metadata, published_at=published, updated_at=updated, event_at=event))
-    candidates = select_candidates(buckets)
+    candidates = select_candidates(buckets, as_of=question.as_of)
     if config.BRAVE_SEARCH_API_KEY:
         from .source_fetch import fetch_selected_bodies
         pending = [c for c in candidates if not c.has_body]
@@ -288,6 +315,10 @@ def retrieve_evidence(question: QuestionSpec, tasks, data_dir: Path):
         for candidate, (body, metadata) in zip(pending, fetched):
             candidate.metadata["body_fetch"] = metadata
             if body:
+                for field in ("published_at", "updated_at"):
+                    parsed = _parse_date(metadata.get(field))
+                    if parsed:
+                        setattr(candidate, field, parsed)
                 candidate.metadata["search_excerpt_hash"] = candidate.metadata["content_hash"]
                 candidate.text = body.replace("\r\n", "\n").replace("\r", "\n")
                 candidate.has_body = True
@@ -300,7 +331,22 @@ def retrieve_evidence(question: QuestionSpec, tasks, data_dir: Path):
             candidate.possible_same_source = []
         candidates = group_sources(candidates)
     evidence = []
+    background_count = 0
+    candidates.sort(key=lambda c: (_recency_rank(c, question.as_of), -c.score, c.url))
     for c in candidates:
+        if any(d and d > question.as_of for d in (c.published_at, c.updated_at)):
+            exclusions.append({"source": c.url, "reason": "正文发布日期或更新晚于当前预测时间"})
+            continue
+        age = (question.as_of - c.published_at).days if c.published_at else None
+        if age is not None and age > 365:
+            exclusions.append({"source": c.url, "reason": "发布时间超过一年，未采用为当前预测依据"})
+            continue
+        role = "recent" if age is not None and age <= 90 else "background" if age is not None else "date_unknown"
+        if role == "background":
+            background_count += 1
+            if background_count > 2:
+                exclusions.append({"source": c.url, "reason": "较旧背景资料限额为两条"})
+                continue
         snapshot = save_snapshot(c.text, {"provider": "brave" if config.BRAVE_SEARCH_API_KEY else "tavily", "source_url": c.url, "title": c.title,
             "query_ids": c.query_ids, "query_terms": [t.query for t in tasks if t.id in c.query_ids],
             "source_metadata": c.metadata}, data_dir)
@@ -308,7 +354,10 @@ def retrieve_evidence(question: QuestionSpec, tasks, data_dir: Path):
         date_basis = {"retrieved_at": "本次工具实际取得时间"}
         for name in ("published_at", "updated_at", "event_at"):
             if getattr(c, name):
-                date_basis[name] = "服务商元数据；缺少时区或仅有日期时按UTC展示，不证明截点前可得"
+                date_basis[name] = ("页面明确日期标记；非独立核实，不等同事件日期" if c.metadata.get("body_fetch", {}).get(name) else "服务商声明日期；非独立核实") + "；无时区按UTC展示"
+        if c.metadata.get("page_age"):
+            date_basis["search_page_age"] = "搜索引擎页面年龄（可能是发布或更新）: " + str(c.metadata["page_age"]) + "；仅供排序，不作为事件或发布日期"
+        date_basis["recency"] = "优先90天，候选不足3条扩大至365天；未知日期不证明近期"
         cutoff_delay = (snapshot.stored_at - question.as_of).total_seconds()
         live_near_cutoff = 0 <= cutoff_delay <= config.LIVE_CUTOFF_GRACE_SECONDS
         if live_near_cutoff:
@@ -317,7 +366,7 @@ def retrieve_evidence(question: QuestionSpec, tasks, data_dir: Path):
                 f"{config.LIVE_CUTOFF_GRACE_SECONDS} 秒 near-cutoff 窗口接受，仅适用于当前实时预测，不证明历史可用性"
             )
         evidence.append(Evidence(id=f"E{len(evidence)+1:03}", source_url=c.url, title=c.title,
-            publisher=urlparse(c.url).hostname, published_at=c.published_at, updated_at=c.updated_at, event_at=c.event_at,
+            publisher=urlparse(c.url).hostname, recency_role=role, age_days=age, published_at=c.published_at, updated_at=c.updated_at, event_at=c.event_at,
             retrieved_at=snapshot.stored_at, excerpt=excerpt, content_hash=hashlib.sha256(excerpt.encode()).hexdigest(),
             claim="待核查", snapshot_path=snapshot.snapshot_path, snapshot_hash=snapshot.snapshot_hash,
             source_type="secondary" if c.has_body else "snippet_only", source_kind="unknown",

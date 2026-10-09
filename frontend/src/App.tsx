@@ -71,6 +71,7 @@ export default function App() {
   const [source, setSource] = useState<Evidence | null>(null), [citation, setCitation] = useState<FindingCitation | null>(null)
   const [tab, setTab] = useState<DetailTab>('event'), [panelVisible, setPanelVisible] = useState(false), [readerExpanded, setReaderExpanded] = useState(false)
   const [error, setError] = useState(''), [filter, setFilter] = useState('')
+  const futureRun = !!run && (!run.question.resolve_by || new Date(run.question.resolve_by).getTime() > Date.now()) && !run.evidence.some(e => e.source_type === 'exercise')
   const resuming = !!run && busyIds.has(run.run_id)
   function busy(id: string, value: boolean) { setBusyIds(old => { const next = new Set(old); value ? next.add(id) : next.delete(id); return next }) }
   function remember(value: ActiveRun, preserveTerminal = false) { setHistory(rows => rows.some(r => r.run_id === value.run_id) ? rows.map(r => r.run_id === value.run_id && !(preserveTerminal && !['queued', 'running'].includes(r.status)) ? summaryOf(value) : r) : [summaryOf(value), ...rows]) }
@@ -235,7 +236,7 @@ export default function App() {
           <div className="stage-progress" aria-label={`${stageCount}个阶段已完成`}>{phases.map(([id, label]) => <i title={label} key={id} className={stageComplete(id) ? 'done' : ''} />)}</div>
           <span>{rounds.length} 轮演化</span><span title="累计记录的运行时间，不计服务停止和等待用户期间">累计运行 {Math.floor(Math.max(0, elapsed) / 60)} 分 {Math.floor(Math.max(0, elapsed) % 60)} 秒</span><span>{tokenTotal.toLocaleString()} tokens</span>
           {run && ['queued', 'running'].includes(run.status) && <button className="run-stop" disabled={resuming || run.cancel_requested} onClick={cancelRun}>{run.cancel_requested ? '正在停止…' : '停止运行'}</button>}
-          {run?.status === 'cancelled' && <span className="run-status-note">已保留停止前的阶段记录，可继续运行或新建研究。</span>}
+          {run?.status === 'cancelled' && <span className="run-status-note">已保留停止前的阶段记录。</span>}
           {isCanvas && panelVisible && <button className="reading-toggle" onClick={() => setPanelVisible(false)} aria-label="收起详情面板">收起节点详情 ↓</button>}
         </div>
       </header>
@@ -249,7 +250,7 @@ export default function App() {
         </section>
         {!isCanvas && <DetailPanel key={`${run?.run_id}-${route.page}`} presentation="page" run={run} tab={pageTab} node={null} onClose={() => navigate('canvas')} onClear={() => setSelected(null)} onSource={inspectSource} onCitation={inspectCitation} onNew={() => composeResearch(run)} onRepair={repairReport} repairing={resuming} />}
       </main>
-      {run && !failedReport && !run.stage_outputs.forecast && ['failed', 'interrupted', 'partial', 'cancelled'].includes(run.status) && <div className="resume-line"><span>{run.status === 'cancelled' ? '运行已停止，阶段记录已保留。' : `运行在 ${run.failed_stage || run.stage} 阶段中断`}</span><button disabled={resuming} onClick={resume}>{run.status === 'cancelled' ? '从已保存阶段继续 ↗' : '从失败阶段继续 ↗'}</button></div>}
+      {run && futureRun && !failedReport && !run.stage_outputs.forecast && ['failed', 'interrupted', 'partial', 'cancelled'].includes(run.status) && <div className="resume-line"><span>{run.status === 'cancelled' ? '运行已停止，阶段记录已保留。' : `运行在 ${run.failed_stage || run.stage} 阶段中断`}</span><button disabled={resuming} onClick={resume}>{run.status === 'cancelled' ? '从已保存阶段继续 ↗' : '从失败阶段继续 ↗'}</button></div>}
     </div>
     {compose && <Modal label="新建事件研究" onClose={() => setCompose(false)}><ResearchComposer parent={composeParent} unavailableReason={!health?.model_configured?'模型尚未配置，请配置后开始推演。':health.model_ready===false?'模型暂不可用，请等待服务恢复后开始推演。':health.search_ready===false?'搜索服务暂不可用，请稍后重试。':undefined} searchReady={!!health?.model_configured && !!health?.search_configured && health.search_ready !== false && health.model_ready !== false} onClose={() => setCompose(false)} onCreated={created} /></Modal>}
     {source && run && <Modal label="来源原文" onClose={() => setSource(null)}><SourceReader run={run} evidence={source} citation={citation} onClose={() => setSource(null)} /></Modal>}
